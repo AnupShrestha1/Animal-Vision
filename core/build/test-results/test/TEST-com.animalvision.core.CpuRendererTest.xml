@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.animalvision.core.CpuRendererTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-10-06T08:00:20" hostname="ANUP" time="0.125">
+  <properties/>
+  <testcase name="dichromat render converges red and green but preserves blue-yellow" classname="com.animalvision.core.CpuRendererTest" time="0.042"/>
+  <testcase name="horse render hides the lower-center blind-spot region" classname="com.animalvision.core.CpuRendererTest" time="0.015"/>
+  <testcase name="all renders are deterministic" classname="com.animalvision.core.CpuRendererTest" time="0.026"/>
+  <testcase name="bee render makes the red chip the darkest (no red receptor)" classname="com.animalvision.core.CpuRendererTest" time="0.023"/>
+  <testcase name="snake render is a colored thermal visualization on a bright neutral" classname="com.animalvision.core.CpuRendererTest" time="0.012"/>
+  <testcase name="human render keeps the red chip clearly red (baseline sanity)" classname="com.animalvision.core.CpuRendererTest" time="0.006"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

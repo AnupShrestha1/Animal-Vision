@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.animalvision.core.StageTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-10-06T08:00:20" hostname="ANUP" time="0.018">
+  <properties/>
+  <testcase name="rod desaturation pushes saturated colors toward gray as darkness increases" classname="com.animalvision.core.StageTest" time="0.001"/>
+  <testcase name="thermal palette ramps from cold dark to hot white" classname="com.animalvision.core.StageTest" time="0.0"/>
+  <testcase name="horse blind-spot wedge is masked near the lower-center frame" classname="com.animalvision.core.StageTest" time="0.004"/>
+  <testcase name="pipeline activates the documented stages per animal and tier" classname="com.animalvision.core.StageTest" time="0.003"/>
+  <testcase name="gaussian kernel is normalized and falls off" classname="com.animalvision.core.StageTest" time="0.0"/>
+  <testcase name="disclosure badges advertise simulations honestly" classname="com.animalvision.core.StageTest" time="0.001"/>
+  <testcase name="low-light shadow lift is monotonic and lifts shadows more than highlights" classname="com.animalvision.core.StageTest" time="0.0"/>
+  <testcase name="eagle foveal boost peaks at frame center and falls off" classname="com.animalvision.core.StageTest" time="0.002"/>
+  <testcase name="blur sigma scales inversely with acuity cutoff" classname="com.animalvision.core.StageTest" time="0.0"/>
+  <testcase name="blur reduces high-frequency contrast but preserves mean" classname="com.animalvision.core.StageTest" time="0.002"/>
+  <testcase name="tier variants never add stages beyond the base pipeline" classname="com.animalvision.core.StageTest" time="0.004"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
