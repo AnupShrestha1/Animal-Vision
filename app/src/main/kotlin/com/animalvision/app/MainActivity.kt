@@ -112,6 +112,9 @@ class MainActivity : ComponentActivity() {
         cameraController.onCapabilitiesResolved = { _, resolution ->
             renderer.setCameraSize(resolution.width, resolution.height)
             appState.hasFlash = cameraController.hasFlash
+            // Ultra-wide is not probed (phase-1 limitation, spec §15): tell the user the
+            // species FOV is simulated rather than optically widened.
+            appState.capabilityNote = "Species FOV simulated — standard lens in use"
         }
         cameraController.onCameraError = { message ->
             runOnUiThread { appState.announce(message) }
