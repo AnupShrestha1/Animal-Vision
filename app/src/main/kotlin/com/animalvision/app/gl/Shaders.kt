@@ -21,6 +21,8 @@ object Shaders {
         #version 300 es
         #extension GL_OES_EGL_image_external_essl3 : require
         precision highp float;
+        precision highp sampler3D;
+        precision highp samplerExternalOES;
         in vec2 vUv;
         uniform samplerExternalOES uTex;
         uniform sampler3D uLut;
