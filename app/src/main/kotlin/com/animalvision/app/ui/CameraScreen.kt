@@ -6,8 +6,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
@@ -32,7 +36,7 @@ import com.animalvision.app.DisplayMode
 import com.animalvision.core.model.AnimalVisionProfile
 
 /**
- * Central camera experience (spec §17–18): viewfinder with before/after controls,
+ * Central camera experience (spec ┬º17ΓÇô18): viewfinder with before/after controls,
  * educational overlay, status line, and capture controls. The GLSurfaceView itself
  * is hosted by the Activity and rendered beneath this overlay layer.
  */
@@ -61,7 +65,7 @@ fun CameraScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // --- press-and-hold viewfinder gesture (spec §20) ---
+        // --- press-and-hold viewfinder gesture (spec ┬º20) ---
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -152,7 +156,7 @@ fun CameraScreen(
             }
             if (isRecording) {
                 Text(
-                    text = "● REC",
+                    text = "ΓùÅ REC",
                     style = MaterialTheme.typography.labelLarge,
                     color = AvDanger,
                     modifier = Modifier
@@ -164,24 +168,40 @@ fun CameraScreen(
             }
         }
 
-        // --- educational overlay (spec §22) ---
-        if (educationalMode) {
-            EducationalOverlay(
-                profile = profile,
-                onOpenInfo = onOpenInfo,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 260.dp),
-            )
-        }
+        // --- educational overlay (spec ┬º22) ---
+        // Bottom scrim keeps the control deck legible over bright scenes.
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(400.dp)
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Transparent,
+                        0.45f to Color.Black.copy(alpha = 0.35f),
+                        1f to Color.Black.copy(alpha = 0.72f),
+                    ),
+                ),
+        )
 
-        // --- status toast ---
-        if (statusMessage != null) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 220.dp),
-            ) {
+        // --- bottom control deck: one column so spacing stays consistent ---
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .navigationBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            if (educationalMode) {
+                EducationalOverlay(
+                    profile = profile,
+                    onOpenInfo = onOpenInfo,
+                )
+                Spacer(Modifier.height(10.dp))
+            }
+
+            // --- status toast ---
+            if (statusMessage != null) {
                 Text(
                     text = statusMessage,
                     style = MaterialTheme.typography.labelLarge,
@@ -193,33 +213,33 @@ fun CameraScreen(
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                         .semantics { contentDescription = statusMessage },
                 )
+                Spacer(Modifier.height(12.dp))
             }
+
+            // --- capture controls ---
+            CaptureControls(
+                onCapturePhoto = onCapturePhoto,
+                onToggleRecord = onToggleRecord,
+                isRecording = isRecording,
+            )
+            Spacer(Modifier.height(14.dp))
+
+            // --- mode selector ---
+            ModeSelector(
+                displayMode = displayMode,
+                onSetMode = onSetMode,
+            )
+
+            // Reserved space for the animal selector strip (rendered by the activity
+            // above this screen), so the two never collide.
+            Spacer(Modifier.height(88.dp))
         }
-
-        // --- capture controls ---
-        CaptureControls(
-            onCapturePhoto = onCapturePhoto,
-            onToggleRecord = onToggleRecord,
-            isRecording = isRecording,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 148.dp),
-        )
-
-        // --- mode selector ---
-        ModeSelector(
-            displayMode = displayMode,
-            onSetMode = onSetMode,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 96.dp),
-        )
     }
 }
 
 private fun modeLabel(mode: Int): String = when (mode) {
     DisplayMode.NORMAL -> "Normal human vision"
-    DisplayMode.SPLIT -> "Split: animal left · human right"
+    DisplayMode.SPLIT -> "Split: animal left ┬╖ human right"
     else -> "Animal vision"
 }
 

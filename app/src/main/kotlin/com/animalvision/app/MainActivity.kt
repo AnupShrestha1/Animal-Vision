@@ -10,14 +10,18 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -29,8 +33,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -314,7 +322,8 @@ class MainActivity : ComponentActivity() {
                     onSelect = appState::selectProfile,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .fillMaxWidth(),
+                        .fillMaxWidth()
+                        .navigationBarsPadding(),
                 )
 
                 if (appState.showInfo) {
@@ -347,41 +356,95 @@ class MainActivity : ComponentActivity() {
         hasFlash: Boolean,
         torchOn: Boolean,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "Animal Vision",
-                style = MaterialTheme.typography.titleMedium,
-                color = AvTextPrimary,
+        Box(modifier = Modifier.fillMaxWidth()) {
+            // Scrim keeps the controls readable over bright scenes.
+            Box(
                 modifier = Modifier
-                    .padding(start = 8.dp)
-                    .semantics {
-                        contentDescription = "Animal Vision, showing ${appState.profile.name}"
-                    },
+                    .matchParentSize()
+                    .background(
+                        Brush.verticalGradient(
+                            0f to Color.Black.copy(alpha = 0.55f),
+                            0.55f to Color.Black.copy(alpha = 0.18f),
+                            1f to Color.Transparent,
+                        ),
+                    ),
             )
-            Spacer(modifier = Modifier.weight(1f))
-            if (hasFlash) {
-                TextButton(onClick = onToggleTorch) {
-                    Text(
-                        text = if (torchOn) "Flash on" else "Flash",
-                        color = if (torchOn) MaterialTheme.colorScheme.primary else AvMuted,
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Animal Vision",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = AvTextPrimary,
+                    modifier = Modifier
+                        .semantics {
+                            contentDescription = "Animal Vision, showing ${appState.profile.name}"
+                        },
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                if (hasFlash) {
+                    GlassIconButton(
+                        glyph = "⚡",
+                        contentDesc = if (torchOn) "Turn flash off" else "Turn flash on",
+                        active = torchOn,
+                        onClick = onToggleTorch,
                     )
                 }
+                GlassIconButton(
+                    glyph = "⇄",
+                    contentDesc = "Switch between rear and front camera",
+                    active = false,
+                    onClick = onSwitchCamera,
+                )
+                GlassIconButton(
+                    glyph = "ⓘ",
+                    contentDesc = "Open species info",
+                    active = false,
+                    onClick = onInfo,
+                )
+                GlassIconButton(
+                    glyph = "⚙",
+                    contentDesc = "Open settings",
+                    active = false,
+                    onClick = onSettings,
+                )
             }
-            TextButton(onClick = onSwitchCamera) {
-                Text("Flip", color = AvMuted)
-            }
-            TextButton(onClick = onInfo) {
-                Text("Info", color = AvMuted)
-            }
-            TextButton(onClick = onSettings) {
-                Text("Settings", color = AvMuted)
-            }
+        }
+    }
+
+    /** Circular translucent control used by the top bar; active state tints the glyph. */
+    @Composable
+    private fun GlassIconButton(
+        glyph: String,
+        contentDesc: String,
+        active: Boolean,
+        onClick: () -> Unit,
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(start = 8.dp)
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(
+                    if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                    else Color.Black.copy(alpha = 0.45f),
+                )
+                .clickable(onClick = onClick)
+                .semantics {
+                    role = Role.Button
+                    contentDescription = contentDesc
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = glyph,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (active) MaterialTheme.colorScheme.primary else AvTextPrimary,
+            )
         }
     }
 }

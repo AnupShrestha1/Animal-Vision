@@ -1,6 +1,7 @@
 package com.animalvision.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -53,6 +54,13 @@ fun AnimalSelector(
                     .background(
                         if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
                         else AvPanel.copy(alpha = 0.82f)
+                    )
+                    .then(
+                        if (selected) {
+                            Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp))
+                        } else {
+                            Modifier
+                        },
                     )
                     .clickable { onSelect(profile.id) }
                     .padding(vertical = 8.dp, horizontal = 6.dp)
