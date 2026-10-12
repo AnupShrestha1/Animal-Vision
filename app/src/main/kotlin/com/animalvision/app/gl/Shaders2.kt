@@ -15,10 +15,12 @@ object Shaders2 {
         out vec4 outColor;
         void main() {
             vec4 acc = vec4(0.0);
-            for (int k = 0; k < 17; k++) {
-                if (k > uRadius) break;
-                vec2 off = vec2(float(k - uRadius) * uTexel.x, 0.0);
-                acc += texture(uTex, vUv + off) * uKernel[k];
+            // Symmetric window: slots [8 - radius, 8 + radius] hold the (renormalized)
+            // truncated Gaussian, centered on slot 8.
+            for (int k = -8; k <= 8; k++) {
+                if (abs(k) > uRadius) continue;
+                vec2 off = vec2(float(k) * uTexel.x, 0.0);
+                acc += texture(uTex, vUv + off) * uKernel[8 + k];
             }
             outColor = acc;
         }
@@ -47,10 +49,10 @@ object Shaders2 {
         out vec4 outColor;
         void main() {
             vec4 acc = vec4(0.0);
-            for (int k = 0; k < 17; k++) {
-                if (k > uRadius) break;
-                vec2 off = vec2(0.0, float(k - uRadius) * uTexel.y);
-                acc += texture(uBlur, vUv + off) * uKernel[k];
+            for (int k = -8; k <= 8; k++) {
+                if (abs(k) > uRadius) continue;
+                vec2 off = vec2(0.0, float(k) * uTexel.y);
+                acc += texture(uBlur, vUv + off) * uKernel[8 + k];
             }
             vec3 sharp = texture(uSharp, vUv).rgb;
             float m = texture(uFovMask, vUv).r;

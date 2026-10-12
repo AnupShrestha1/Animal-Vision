@@ -28,13 +28,18 @@ object Shaders {
         uniform sampler3D uLut;
         uniform int uUseLut;
         uniform mat4 uTexMat;
+        uniform vec2 uCropScale; // cover-fit crop, (1,1) = full frame
         out vec4 outColor;
         vec3 srgbToLinear(vec3 c) {
             return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)),
                        step(vec3(0.04045), c));
         }
         void main() {
-            vec2 uv = (uTexMat * vec4(vUv, 0.0, 1.0)).xy;
+            // Quad UV -> camera buffer via the SurfaceTexture transform (rotation +
+            // crop already baked in by CameraX). uCropScale applies an additional
+            // center cover-crop in quad space when set below (1,1).
+            vec2 q = (vUv - 0.5) * uCropScale + 0.5;
+            vec2 uv = (uTexMat * vec4(q, 0.0, 1.0)).xy;
             vec3 rgb = texture(uTex, uv).rgb;
             vec3 lin = srgbToLinear(rgb);
             vec3 outRgb = (uUseLut == 1) ? texture(uLut, lin).rgb : lin;

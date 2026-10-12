@@ -65,6 +65,7 @@ class AnimalGlRenderer(
 
     private val kernelUniform = FloatArray(17)
     private var kernelRadius = 0
+    private var loggedTransform = false
     private val texMatrix = FloatArray(16).also {
         it[0] = 1f; it[5] = 1f; it[10] = 1f; it[15] = 1f
     }
@@ -202,15 +203,81 @@ class AnimalGlRenderer(
         GLES30.glUniform1i(GLES30.glGetUniformLocation(prog, name), unit)
     }
 
+    /**
+     * Cover-fit mapping: keeps the camera frame's aspect instead of stretching it
+     * into the tierW x tierH quad.
+     *
+     * The sampled image's true aspect is MEASURED from the SurfaceTexture transform:
+     * the quad's U/V edges mapped through [texMatrix] into buffer pixels
+     * (using the real buffer size in [cameraTexSize]). This is robust to the 90°
+     * sensor rotation, mirroring, and any crop CameraX bakes into the matrix.
+     * The narrower axis is then center-cropped (scale <= 1, never a stretch).
+     */
+    private fun computeCrop(): Pair<Float, Float> {
+        var sx = 1f
+        var sy = 1f
+        val wb = cameraTexSize[0].toDouble()
+        val hb = cameraTexSize[1].toDouble()
+        if (tierW > 0 && tierH > 0 && wb > 0 && hb > 0) {
+            // Quad edges through the transform (column-major 4x4, rotation in
+            // columns 0/1; translation does not affect edge vectors).
+            val lenU = Math.hypot(texMatrix[0] * wb, texMatrix[1] * hb)
+            val lenV = Math.hypot(texMatrix[4] * wb, texMatrix[5] * hb)
+            if (lenU > 1e-6 && lenV > 1e-6) {
+                val contentAspect = lenU / lenV
+                val tierAspect = tierW.toDouble() / tierH.toDouble()
+                if (contentAspect > tierAspect) {
+                    // Content relatively wider: crop width.
+                    sx = (tierAspect / contentAspect).toFloat()
+                } else if (contentAspect < tierAspect) {
+                    // Content relatively taller: crop height.
+                    sy = (contentAspect / tierAspect).toFloat()
+                }
+                if (sx.isNaN() || sx <= 0f || sx > 1f) sx = 1f
+                if (sy.isNaN() || sy <= 0f || sy > 1f) sy = 1f
+            }
+        }
+        return sx to sy
+    }
+
+    private var lastLoggedSx = -1f
+    private var lastLoggedSy = -1f
+    private var cropLogCount = 0
+
+    private fun setCropUniform(prog: Int) {
+        val (sx, sy) = computeCrop()
+        // Log every crop change (bounded) so device logs show the measured geometry.
+        if ((sx != lastLoggedSx || sy != lastLoggedSy) && cropLogCount < 20) {
+            lastLoggedSx = sx
+            lastLoggedSy = sy
+            cropLogCount++
+            android.util.Log.i(
+                "AnimalVision",
+                String.format(
+                    java.util.Locale.US,
+                    "AVDBG crop sx=%.3f sy=%.3f tier=%dx%d cam=%dx%d",
+                    sx, sy, tierW, tierH, cameraTexSize[0], cameraTexSize[1],
+                ),
+            )
+        }
+        val loc = GLES30.glGetUniformLocation(prog, "uCropScale")
+        if (loc >= 0) GLES30.glUniform2f(loc, sx, sy)
+    }
+
     /** Regenerate FOV/boost/visibility masks whenever profile or resolution changes. */
     private fun ensureMasks(profile: AnimalVisionProfile) {
         val key = profile.id + ":" + tierW
         if (key == masksForProfile) return
-        maskFov = GlPipeline.createR8Texture(tierW, tierH, Fov.acuityMask(profile, tierW, tierH))
+        // Compute the acuity mask ONCE — it is O(w*h), and reusing it keeps mask
+        // generation linear. (Recomputing it per pixel here was O((w*h)^2) and hung
+        // the GL thread on the first frame, leaving the viewfinder black.)
+        val acuity = Fov.acuityMask(profile, tierW, tierH)
+        // Free the previous generation's textures before replacing them.
+        if (maskFov != 0) GLES30.glDeleteTextures(3, intArrayOf(maskFov, maskBoost, maskVis), 0)
+        maskFov = GlPipeline.createR8Texture(tierW, tierH, acuity)
         maskBoost = GlPipeline.createR8Texture(tierW, tierH, Fov.sharpBoostMask(profile, tierW, tierH))
         val vis = FloatArray(tierW * tierH) { i ->
-            val m = Fov.acuityMask(profile, tierW, tierH)[i]
-            0.05f + 0.95f * m
+            0.05f + 0.95f * acuity[i]
         }
         maskVis = GlPipeline.createR8Texture(tierW, tierH, vis)
         masksForProfile = key
@@ -241,6 +308,21 @@ class AnimalGlRenderer(
         st.updateTexImage()
         st.getTransformMatrix(texMatrix)
         uploadPendingLut()
+        if (!loggedTransform) {
+            loggedTransform = true
+            val c = StringBuilder()
+            val corners = floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f, 1f, 1f)
+            for (k in 0 until 4) {
+                val u = texMatrix[0] * corners[k * 2] + texMatrix[4] * corners[k * 2 + 1] + texMatrix[12]
+                val v = texMatrix[1] * corners[k * 2] + texMatrix[5] * corners[k * 2 + 1] + texMatrix[13]
+                c.append(String.format("(%.3f,%.3f)", u, v))
+            }
+            android.util.Log.i(
+                "AnimalVision",
+                "AVDBG tier=${tierW}x${tierH} screen=${screenW}x${screenH} " +
+                    "cam=${cameraTexSize[0]}x${cameraTexSize[1]} uv=$c",
+            )
+        }
 
         // Tier change -> reallocate the internal chain (cheap size check).
         if (screenW > 0 && screenH > 0) {
@@ -260,6 +342,7 @@ class AnimalGlRenderer(
         setTex(oesProg, "uTex", 0, oesTexture, GlPipeline.TEXTURE_EXTERNAL_OES)
         setTex(oesProg, "uLut", 1, lutTexture, GLES30.GL_TEXTURE_3D)
         GLES30.glUniformMatrix4fv(GLES30.glGetUniformLocation(oesProg, "uTexMat"), 1, false, texMatrix, 0)
+        setCropUniform(oesProg)
         GLES30.glUniform1i(GLES30.glGetUniformLocation(oesProg, "uUseLut"), 0)
         GlPrimitives.drawFsQuad()
 
@@ -269,6 +352,7 @@ class AnimalGlRenderer(
         setTex(oesProg, "uTex", 0, oesTexture, GlPipeline.TEXTURE_EXTERNAL_OES)
         setTex(oesProg, "uLut", 1, lutTexture, GLES30.GL_TEXTURE_3D)
         GLES30.glUniformMatrix4fv(GLES30.glGetUniformLocation(oesProg, "uTexMat"), 1, false, texMatrix, 0)
+        setCropUniform(oesProg)
         GLES30.glUniform1i(GLES30.glGetUniformLocation(oesProg, "uUseLut"), 1)
         GlPrimitives.drawFsQuad()
 
@@ -354,10 +438,24 @@ class AnimalGlRenderer(
     private fun buildKernel(sigma: Double) {
         val k = Acuity.gaussianKernel(sigma)
         java.util.Arrays.fill(kernelUniform, 0f)
-        val kc = k.size / 2
-        for (i in k.indices) {
-            val slot = i - kc + kernelRadius
-            if (slot in 0..16) kernelUniform[slot] = k[i]
+        // Center the truncated kernel on slot 8 and RENORMALIZE the kept taps, so the
+        // kept energy sums to 1. The blur shaders loop k = -8..8 with offset k,
+        // sampling slots [8 - radius, 8 + radius]: a symmetric 2*radius+1 window
+        // around the center tap.
+        val kc = k.size / 2 // center index of the full kernel
+        val center = 8
+        var sum = 0f
+        for (slot in 0..16) {
+            val ki = kc + (slot - center)
+            if (ki in k.indices) {
+                kernelUniform[slot] = k[ki]
+                if (slot >= center - kernelRadius && slot <= center + kernelRadius) {
+                    sum += k[ki]
+                }
+            }
+        }
+        if (sum > 1e-6f) {
+            for (slot in 0..16) kernelUniform[slot] = kernelUniform[slot] / sum
         }
     }
 
@@ -371,7 +469,7 @@ class AnimalGlRenderer(
                 precision mediump float;
                 in vec2 aPos;
                 out vec2 vUv;
-                void main() { vUv = vec2(aPos.x, -aPos.y) * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }
+                void main() { vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }
             """.trimIndent()
             val f = """
                 #version 300 es

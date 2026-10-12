@@ -95,7 +95,22 @@ object GlPipeline {
         val t = IntArray(1)
         GLES30.glGenTextures(1, t, 0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t[0])
-        GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_R8, w, h, 0, GLES30.GL_RED, GLES30.GL_FLOAT, FloatBuffer.wrap(data))
+        // GL_R8 is a normalized unsigned-byte format: quantize 0..1 floats to bytes.
+        // (GL_RED/GL_FLOAT is not a valid combination for R8 and leaves the texture
+        // incomplete, which samples as zero — that blacked out every animal using
+        // the acuity/FOV blur path.)
+        val bytes = ByteBuffer.allocateDirect(w * h).order(ByteOrder.nativeOrder())
+        val n = minOf(data.size, w * h)
+        for (i in 0 until w * h) {
+            val v = ((if (i < n) data[i] else 0f) * 255f + 0.5f).toInt().coerceIn(0, 255)
+            bytes.put(v.toByte())
+        }
+        bytes.flip()
+        GLES30.glPixelStorei(GLES30.GL_UNPACK_ALIGNMENT, 1)
+        GLES30.glTexImage2D(
+            GLES30.GL_TEXTURE_2D, 0, GLES30.GL_R8, w, h, 0,
+            GLES30.GL_RED, GLES30.GL_UNSIGNED_BYTE, bytes,
+        )
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
