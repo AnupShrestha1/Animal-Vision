@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -107,41 +108,16 @@ fun CameraScreen(
             }
         }
 
-        // --- transient mode hint ---
-        if (showModeHint) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .statusBarsPadding()
-                    .padding(top = 56.dp),
-            ) {
-                Text(
-                    text = modeLabel(displayMode),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color.White,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color.Black.copy(alpha = 0.6f))
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-            }
-        }
-
-        // --- top-right HUD: fps + capability note + recording ---
+        // --- viewfinder HUD: sits BELOW the top bar so nothing overlaps it.
+        // Order: capability note first (long chip), then a compact row of fps + REC.
         Column(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .statusBarsPadding()
-                .padding(end = 12.dp, top = 8.dp),
+                .padding(top = 52.dp, end = 12.dp)
+                .widthIn(max = 250.dp),
             horizontalAlignment = Alignment.End,
         ) {
-            if (fps > 0) {
-                Text(
-                    text = "${fps.toInt()} fps",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.7f),
-                )
-            }
             if (capabilityNote != null) {
                 Text(
                     text = capabilityNote,
@@ -149,22 +125,40 @@ fun CameraScreen(
                     color = AvWarning,
                     textAlign = TextAlign.End,
                     modifier = Modifier
+                        .widthIn(max = 230.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(Color.Black.copy(alpha = 0.5f))
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                 )
+                Spacer(Modifier.height(6.dp))
             }
-            if (isRecording) {
-                Text(
-                    text = "▶ REC",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = AvDanger,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color.Black.copy(alpha = 0.5f))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                        .semantics { contentDescription = "Recording in progress" },
-                )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (fps > 0) {
+                    Text(
+                        text = "${fps.toInt()} fps",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.Black.copy(alpha = 0.5f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
+                }
+                if (isRecording) {
+                    Text(
+                        text = "▶ REC",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = AvDanger,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.Black.copy(alpha = 0.5f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .semantics { contentDescription = "Recording in progress" },
+                    )
+                }
             }
         }
 
@@ -196,6 +190,22 @@ fun CameraScreen(
                 EducationalOverlay(
                     profile = profile,
                     onOpenInfo = onOpenInfo,
+                )
+                Spacer(Modifier.height(10.dp))
+            }
+
+            // --- transient mode hint (snack-style, above the deck) ---
+            if (showModeHint) {
+                Text(
+                    text = modeLabel(displayMode),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color.Black.copy(alpha = 0.65f))
+                        .padding(horizontal = 18.dp, vertical = 8.dp)
+                        .semantics { contentDescription = modeLabel(displayMode) },
                 )
                 Spacer(Modifier.height(10.dp))
             }
