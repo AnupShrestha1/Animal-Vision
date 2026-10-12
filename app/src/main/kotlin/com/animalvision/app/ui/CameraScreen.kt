@@ -36,7 +36,7 @@ import com.animalvision.app.DisplayMode
 import com.animalvision.core.model.AnimalVisionProfile
 
 /**
- * Central camera experience (spec ┬º17ΓÇô18): viewfinder with before/after controls,
+ * Central camera experience (spec §17–18): viewfinder with before/after controls,
  * educational overlay, status line, and capture controls. The GLSurfaceView itself
  * is hosted by the Activity and rendered beneath this overlay layer.
  */
@@ -65,7 +65,7 @@ fun CameraScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // --- press-and-hold viewfinder gesture (spec ┬º20) ---
+        // --- press-and-hold viewfinder gesture (spec §20) ---
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -156,7 +156,7 @@ fun CameraScreen(
             }
             if (isRecording) {
                 Text(
-                    text = "ΓùÅ REC",
+                    text = "▶ REC",
                     style = MaterialTheme.typography.labelLarge,
                     color = AvDanger,
                     modifier = Modifier
@@ -168,7 +168,7 @@ fun CameraScreen(
             }
         }
 
-        // --- educational overlay (spec ┬º22) ---
+        // --- educational overlay (spec §22) ---
         // Bottom scrim keeps the control deck legible over bright scenes.
         Box(
             modifier = Modifier
@@ -239,7 +239,7 @@ fun CameraScreen(
 
 private fun modeLabel(mode: Int): String = when (mode) {
     DisplayMode.NORMAL -> "Normal human vision"
-    DisplayMode.SPLIT -> "Split: animal left ┬╖ human right"
+    DisplayMode.SPLIT -> "Split: animal left · human right"
     else -> "Animal vision"
 }
 
