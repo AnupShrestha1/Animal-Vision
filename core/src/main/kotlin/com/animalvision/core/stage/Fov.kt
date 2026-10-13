@@ -55,6 +55,25 @@ object Fov {
     }
 
     /**
+     * Weight of the central-acuity image (vs the extra-blurred peripheral one) for an
+     * [acuityMask] value: 1 inside the binocular zone, 0 at or below the peripheral level.
+     */
+    fun centralWeight(mask: Float, peripheralScalar: Double): Float {
+        if (peripheralScalar >= 1.0) return 1f
+        return ((mask - peripheralScalar) / (1.0 - peripheralScalar)).toFloat().coerceIn(0f, 1f)
+    }
+
+    /**
+     * Brightness factor for an [acuityMask] value. Ordinary peripheral falloff is expressed as
+     * blur, not darkening; only regions masked BELOW the peripheral level (blind spots such as
+     * the horse's muzzle wedge) fade toward near-black.
+     */
+    fun visibility(mask: Float, peripheralScalar: Double): Float {
+        val p = peripheralScalar.coerceIn(0.05, 1.0)
+        return 0.05f + 0.95f * (mask / p).toFloat().coerceIn(0f, 1f)
+    }
+
+    /**
      * 0..1 per-pixel boost mask for species with a high-acuity central region (eagle fovea). */
     fun sharpBoostMask(profile: AnimalVisionProfile, width: Int, height: Int, sigmaFrac: Double = 0.22): FloatArray {
         val amp = (profile.acuity.centralScalar - 1.0).coerceAtLeast(0.0)

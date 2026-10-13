@@ -160,5 +160,53 @@ class StageTest {
         assertThat(hot[2]).isGreaterThan(cold[2]) // hot = whiter
     }
 
+    @Test
+    fun `acuity plan blurs the centre of low-acuity species and adds peripheral blur`() {
+        val bee = Acuity.plan(getProfile("bee")!!.acuity, 1280, 720)
+        assertThat(bee.centralSigma).isGreaterThan(10.0)
+        assertThat(bee.peripheralSigma).isGreaterThan(bee.centralSigma)
+        assertThat(bee.unsharpSigma).isEqualTo(0.0)
+    }
+
+    @Test
+    fun `acuity plan scales with processing resolution so tiers agree`() {
+        val dog = getProfile("dog")!!.acuity
+        val high = Acuity.plan(dog, 1280, 720)
+        val perf = Acuity.plan(dog, 640, 360)
+        assertThat(perf.centralSigma).isWithin(1e-9).of(high.centralSigma / 2.0)
+    }
+
+    @Test
+    fun `eagle plan keeps the image sharp and enables only the foveal unsharp mask`() {
+        val eagle = Acuity.plan(getProfile("eagle")!!.acuity, 1280, 720)
+        assertThat(eagle.centralSigma).isEqualTo(0.0)
+        assertThat(eagle.peripheralSigma).isEqualTo(0.0)
+        assertThat(eagle.unsharpSigma).isGreaterThan(0.0)
+        assertThat(Acuity.plan(getProfile("human")!!.acuity, 1280, 720).isNoop).isTrue()
+    }
+
+    @Test
+    fun `pyramid level keeps per-level sigma small and preserves total blur`() {
+        for (sigma in doubleArrayOf(0.5, 2.0, 5.0, 19.7, 49.0)) {
+            val (level, remaining) = Acuity.pyramidLevel(sigma)
+            assertThat(remaining).isAtMost(2.6)
+            val scale = (1 shl level).toDouble()
+            val total = Math.sqrt((remaining * scale) * (remaining * scale) + (scale * scale - 1.0) / 12.0)
+            assertThat(total).isWithin(1e-6).of(sigma)
+        }
+        assertThat(Acuity.pyramidLevel(1.0).first).isEqualTo(0)
+    }
+
+    @Test
+    fun `central weight and visibility separate peripheral blur from blind spots`() {
+        val p = 0.6
+        assertThat(Fov.centralWeight(1f, p)).isEqualTo(1f)
+        assertThat(Fov.centralWeight(0.6f, p)).isWithin(1e-6f).of(0f)
+        // ordinary periphery is blurred, not darkened
+        assertThat(Fov.visibility(0.6f, p)).isWithin(1e-6f).of(1f)
+        // a blind spot below the peripheral level fades out
+        assertThat(Fov.visibility(0.09f, p)).isLessThan(0.3f)
+    }
+
     private fun getProfilesAll() = com.animalvision.core.profiles.profileRegistry
 }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,6 +36,9 @@ import com.animalvision.core.model.AnimalVisionProfile
  * [CartoonAnimalFace]) — with the name and overall confidence beneath it, and
  * announces the name plus confidence as a screen-reader label.
  */
+/** Fixed strip height; CameraScreen reserves exactly this much so the strip never overlaps it. */
+val AnimalSelectorHeight = 124.dp
+
 @Composable
 fun AnimalSelector(
     profiles: List<AnimalVisionProfile>,
@@ -43,7 +47,7 @@ fun AnimalSelector(
     modifier: Modifier = Modifier,
 ) {
     LazyRow(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().height(AnimalSelectorHeight),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {

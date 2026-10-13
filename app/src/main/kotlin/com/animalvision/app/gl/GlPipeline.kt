@@ -10,6 +10,18 @@ object GlPipeline {
     /** GL_TEXTURE_EXTERNAL_OES — defined in GLES11Ext, not GLES30. */
     const val TEXTURE_EXTERNAL_OES = 0x8D65
 
+    private val uniformCache = HashMap<Int, HashMap<String, Int>>()
+
+    /** Cached glGetUniformLocation (GL thread only); avoids per-frame driver lookups. */
+    fun uniform(prog: Int, name: String): Int =
+        uniformCache.getOrPut(prog) { HashMap() }.getOrPut(name) { GLES30.glGetUniformLocation(prog, name) }
+
+    /** Forget all GL-context-bound state (program ids are reused by a new context). */
+    fun resetContextState() {
+        uniformCache.clear()
+        GlPrimitives.resetContextState()
+    }
+
     fun compileProgram(vertexSrc: String, fragmentSrc: String): Int {
         fun compile(type: Int, src: String): Int {
             val sh = GLES30.glCreateShader(type)

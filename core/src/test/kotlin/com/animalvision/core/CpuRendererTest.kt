@@ -112,6 +112,25 @@ class CpuRendererTest {
     }
 
     @Test
+    fun `low-acuity species blur fine detail even at the centre of view`() {
+        // 2px checkerboard filling the frame; measure contrast in the central binocular zone.
+        val s = Scene(100, 100)
+        for (y in 0 until 100) for (x in 0 until 100) {
+            s.fill(x, y, x + 1, y + 1, if (((x / 2) + (y / 2)) % 2 == 0) 0xffffffff.toInt() else 0xff000000.toInt())
+        }
+        fun centreContrast(id: String): Double {
+            val out = render(id, s)
+            var lo = 1.0; var hi = 0.0
+            for (y in 45 until 55) for (x in 45 until 55) {
+                val l = lum(pxOf(out, y * 100 + x))
+                lo = Math.min(lo, l); hi = Math.max(hi, l)
+            }
+            return hi - lo
+        }
+        assertThat(centreContrast("bee")).isLessThan(centreContrast("human") * 0.2)
+    }
+
+    @Test
     fun `all renders are deterministic`() {
         val a = render("cat", chipScene())
         val b = render("cat", chipScene())

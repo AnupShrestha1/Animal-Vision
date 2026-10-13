@@ -12,6 +12,66 @@ object Acuity {
     /** Approximate pixels per visual degree for a typical 720p, ~65°-wide phone frame. */
     const val PX_PER_DEGREE = 19.7
 
+    /** Below this sigma (pixels) a blur is visually indistinguishable from none. */
+    const val MIN_SIGMA = 0.35
+
+    /** Reference-blur sigma (pixels) for the bounded foveal unsharp mask. */
+    const val UNSHARP_SIGMA = 0.8
+
+    /** Strength of the foveal unsharp mask; detail is clamped to ±0.05 so it stays halo-free. */
+    const val SHARPEN_AMOUNT = 0.35
+
+    /**
+     * Pixels per visual degree for an image of [width]×[height] whose long side spans the
+     * nominal phone-lens field ([Fov.VIEW_FOV_DEGREES]). Blur sigmas must be derived from the
+     * resolution actually being processed, or apparent acuity would change with quality tier.
+     */
+    fun pxPerDegree(width: Int, height: Int): Double =
+        Math.max(width, height) / Fov.VIEW_FOV_DEGREES
+
+    /**
+     * Per-frame acuity plan shared by the CPU reference and the GPU renderer.
+     *
+     * The species' central acuity limit blurs the WHOLE frame (an animal with 0.5 c/deg does
+     * not see a sharp centre); the peripheral scalar adds further blur outside the central zone.
+     * A sigma of 0 means "leave sharp".
+     */
+    data class Plan(
+        val centralSigma: Double,
+        val peripheralSigma: Double,
+        /** > 0 only for foveal species finer than the display (eagle): bounded unsharp mask. */
+        val unsharpSigma: Double,
+        val peripheralScalar: Double,
+    ) {
+        val isNoop: Boolean get() = centralSigma == 0.0 && peripheralSigma == 0.0 && unsharpSigma == 0.0
+    }
+
+    fun plan(model: AcuityModel, width: Int, height: Int): Plan {
+        val ppd = pxPerDegree(width, height)
+        fun sigma(cpd: Double): Double = blurSigmaPixels(cpd, ppd).let { if (it < MIN_SIGMA) 0.0 else it }
+        val p = model.peripheralScalar.coerceIn(0.05, 1.0)
+        val central = sigma(model.cutoffCpd)
+        val peripheral = if (p < 1.0) sigma(model.cutoffCpd * p) else central
+        val unsharp = if (model.centralScalar > 1.0 && central == 0.0) UNSHARP_SIGMA else 0.0
+        return Plan(central, peripheral, unsharp, p)
+    }
+
+    /**
+     * Pyramid level for a large blur: the image is halved [level] times (2×2 box each step)
+     * until the remaining sigma is at most [maxSigmaPerLevel], so a fixed-size kernel can
+     * realize any sigma. Returns the level and the sigma still to apply AT that level
+     * (in that level's pixels), with the box prefilters' variance already subtracted.
+     */
+    fun pyramidLevel(sigma: Double, maxSigmaPerLevel: Double = 2.6, maxLevel: Int = 5): Pair<Int, Double> {
+        var level = 0
+        while (level < maxLevel && sigma / (1 shl level) > maxSigmaPerLevel) level++
+        val scale = (1 shl level).toDouble()
+        // Each 2× box step i adds variance 4^(i-1)/4 base px²; the sum is (4^L − 1)/12.
+        val prefilterVar = (scale * scale - 1.0) / 12.0
+        val remaining = Math.sqrt(Math.max(0.0, sigma * sigma - prefilterVar)) / scale
+        return level to remaining
+    }
+
     /**
      * Gaussian blur sigma (in pixels) for a species' acuity cutoff.
      * sigma = pxPerDegree / (2 * cutoffCpd): a grating at the cutoff needs ~1 cycle per
@@ -74,26 +134,5 @@ object Acuity {
                 dst[y * width + x] = acc
             }
         }
-    }
-
-    /**
-     * Bounded, halo-free unsharp mask for high-acuity species (eagle). Returns an image where
-     * local contrast in the feature region is gently boosted. [amount] in (0, ~0.5]; clamp keeps
-     * overshoot tiny so halos are avoided (spec §12).
-     */
-    fun sharpenChannel(src: FloatArray, dst: FloatArray, width: Int, height: Int, sigma: Double, amount: Double) {
-        val blurred = FloatArray(width * height)
-        blurChannel(src, blurred, width, height, sigma)
-        for (i in src.indices) {
-            val detail = src[i] - blurred[i]
-            val clamped = detail.coerceIn(-0.05f, 0.05f)
-            dst[i] = (src[i] + amount.toFloat() * clamped).coerceIn(0f, 1f)
-        }
-    }
-
-    /** Convenience: effective sigma for a model (0 if the cutoff implies finer than display). */
-    fun effectiveSigma(model: AcuityModel): Double {
-        val sigma = blurSigmaPixels(model.cutoffCpd)
-        return if (sigma < 0.35) 0.0 else sigma
     }
 }

@@ -28,6 +28,11 @@ object GlPrimitives {
         GLES30.glBindVertexArray(quadVao)
     }
 
+    /** The VAO belongs to the old context after an EGL context loss; rebuild lazily. */
+    fun resetContextState() {
+        quadVao = -1
+    }
+
     fun drawFsQuad() {
         GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
     }

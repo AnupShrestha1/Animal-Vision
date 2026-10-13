@@ -148,15 +148,6 @@ fun SettingsScreen(
                 color = AvMuted,
                 modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
             )
-            SectionTitle("Credits & licenses")
-            Text(
-                text = "All animal photos come from Wikimedia Commons under open licenses. " +
-                    "Full attribution, license, and source details are in " +
-                    "docs/CREDITS.md (in the source tree and app docs).",
-                style = MaterialTheme.typography.bodyMedium,
-                color = AvTextPrimary,
-                modifier = Modifier.padding(top = 8.dp),
-            )
         }
     }
 }

@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.SurfaceTexture
+import android.os.Build
 import android.opengl.GLSurfaceView
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -43,7 +44,6 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
 import com.animalvision.app.gl.AnimalGlRenderer
 import com.animalvision.app.ui.AnimalInfoScreen
 import com.animalvision.app.ui.AnimalSelector
@@ -56,10 +56,7 @@ import com.animalvision.app.ui.SettingsScreen
 import com.animalvision.core.model.QualityTier
 import java.io.File
 import java.util.concurrent.Executors
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * Wires the GL viewfinder, CameraX, capture plumbing, and the Compose UI.
@@ -74,6 +71,28 @@ class MainActivity : ComponentActivity() {
     private val ioExecutor = Executors.newSingleThreadExecutor()
     private var surfaceTexture: SurfaceTexture? = null
     private var cameraStarted = false
+
+    // ---- storage permission (API 26–28 only; scoped storage needs none) ----
+    private var pendingStorageAction: (() -> Unit)? = null
+    private val storagePermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            val action = pendingStorageAction
+            pendingStorageAction = null
+            if (granted) action?.invoke()
+            else appState.announce("Storage access is needed to save photos and videos")
+        }
+
+    private fun withStorageAccess(action: () -> Unit) {
+        if (Build.VERSION.SDK_INT >= 29 ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            action()
+            return
+        }
+        pendingStorageAction = action
+        storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+    }
 
     private var cameraPermissionGranted = false
         set(value) {
@@ -97,8 +116,21 @@ class MainActivity : ComponentActivity() {
         // re-frames by this value every frame).
         renderer.setDisplayRotationDegrees(rotationDegrees())
         renderer.onSurfaceTextureReady = { st ->
-            surfaceTexture = st
-            maybeStartCamera()
+            // GL thread -> main. A second call means the EGL context was recreated with a
+            // new camera texture, so the camera must be re-bound to it.
+            runOnUiThread {
+                surfaceTexture = st
+                cameraStarted = false
+                maybeStartCamera()
+            }
+        }
+        renderer.onRecordingInterrupted = {
+            runOnUiThread {
+                if (appState.isRecording) {
+                    stopRecording(publish = true)
+                    appState.announce("Recording stopped: screen rotated")
+                }
+            }
         }
         renderer.onFps = { fps -> appState.fps = fps }
         renderer.onTierDropRequest = {
@@ -128,6 +160,11 @@ class MainActivity : ComponentActivity() {
             // Ultra-wide is not probed (phase-1 limitation, spec §15): tell the user the
             // species FOV is simulated rather than optically widened.
             appState.capabilityNote = "Species FOV simulated — standard lens in use"
+        }
+        // Recordings abandoned by a previous process (killed mid-recording) are never published.
+        ioExecutor.execute {
+            cacheDir.listFiles { f -> f.name.startsWith("av_") && f.name.endsWith(".mp4") }
+                ?.forEach { it.delete() }
         }
         cameraController.onCameraError = { message ->
             runOnUiThread { appState.announce(message) }
@@ -170,12 +207,7 @@ class MainActivity : ComponentActivity() {
         // rotation settles; re-read on the next main-loop pass so the renderer
         // always ends up with the final value.
         mainExecutor.execute {
-            val settled = rotationDegrees()
-            renderer.setDisplayRotationDegrees(settled)
-            android.util.Log.i(
-                "AnimalVision",
-                "AVDBG rotation=$settled landscape=${newConfig.screenWidthDp > newConfig.screenHeightDp}",
-            )
+            renderer.setDisplayRotationDegrees(rotationDegrees())
         }
     }
 
@@ -183,6 +215,7 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         if (appState.isRecording) stopRecording(publish = false)
         cameraController.stop()
+        renderer.shutdown()
         ioExecutor.shutdown()
     }
 
@@ -222,19 +255,25 @@ class MainActivity : ComponentActivity() {
         if (appState.isRecording) {
             stopRecording(publish = true)
         } else {
-            val file = File(cacheDir, "av_${System.currentTimeMillis()}.mp4")
-            pendingVideoFile = file
-            glView.queueEvent {
-                renderer.startRecordingOnGlThread(file) { error ->
-                    runOnUiThread {
-                        appState.isRecording = false
-                        appState.announce("Recording failed: $error")
-                    }
+            withStorageAccess(::startRecording)
+        }
+    }
+
+    private fun startRecording() {
+        if (appState.isRecording) return
+        val file = File(cacheDir, "av_${System.currentTimeMillis()}.mp4")
+        pendingVideoFile = file
+        glView.queueEvent {
+            renderer.startRecordingOnGlThread(file) { error ->
+                file.delete()
+                runOnUiThread {
+                    appState.isRecording = false
+                    appState.announce("Recording failed: $error")
                 }
             }
-            appState.isRecording = true
-            appState.announce("Recording started")
         }
+        appState.isRecording = true
+        appState.announce("Recording started")
     }
 
     private fun stopRecording(publish: Boolean) {
@@ -245,7 +284,9 @@ class MainActivity : ComponentActivity() {
         glView.queueEvent {
             renderer.stopRecordingOnGlThread {
                 // worker thread after teardown
-                if (publish && file != null) {
+                if (!publish) {
+                    file?.delete()
+                } else if (file != null) {
                     val uri = CaptureSaver.publishVideo(applicationContext, file, animalName)
                     runOnUiThread {
                         appState.announce(
@@ -336,7 +377,7 @@ class MainActivity : ComponentActivity() {
                     statusMessage = appState.statusMessage,
                     fps = appState.fps,
                     isRecording = appState.isRecording,
-                    onCapturePhoto = ::capturePhoto,
+                    onCapturePhoto = { withStorageAccess(::capturePhoto) },
                     onToggleRecord = ::toggleRecording,
                     onOpenInfo = { appState.showInfo = true },
                 )

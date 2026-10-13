@@ -26,41 +26,75 @@ object Shaders2 {
         }
     """.trimIndent()
 
-    /**
-     * Vertical blur + acuity/FOV combination:
-     *  - vertical blur of the horizontal-pass texture;
-     *  - blend sharp vs blurred by the binocular/peripheral mask;
-     *  - bounded halo-free foveal sharpening (eagle) via the boost mask;
-     *  - blind-spot visibility attenuation.
-     */
+    /** Separable Gaussian blur, vertical pass (mirror of [FRAG_BLUR_H]). */
     val FRAG_BLUR_V = """
         #version 300 es
         precision highp float;
         in vec2 vUv;
-        uniform sampler2D uBlur;
-        uniform sampler2D uSharp;
-        uniform sampler2D uFovMask;
-        uniform sampler2D uBoost;
-        uniform sampler2D uVis;
+        uniform sampler2D uTex;
         uniform int uRadius;
         uniform float uKernel[17];
         uniform vec2 uTexel;
-        uniform float uSharpenAmount;
         out vec4 outColor;
         void main() {
             vec4 acc = vec4(0.0);
             for (int k = -8; k <= 8; k++) {
                 if (abs(k) > uRadius) continue;
                 vec2 off = vec2(0.0, float(k) * uTexel.y);
-                acc += texture(uBlur, vUv + off) * uKernel[8 + k];
+                acc += texture(uTex, vUv + off) * uKernel[8 + k];
             }
-            vec3 sharp = texture(uSharp, vUv).rgb;
-            float m = texture(uFovMask, vUv).r;
-            float boost = texture(uBoost, vUv).r;
-            float vis = texture(uVis, vUv).r;
-            vec3 combined = mix(acc.rgb, sharp, m);
-            vec3 detail = clamp(sharp - acc.rgb, vec3(-0.05), vec3(0.05));
-            combined += detail * uSharpenAmount * boost;
+            outColor = acc;
+        }
+    """.trimIndent()
+
+    /**
+     * Pyramid downsample: drawn into a target half the source size, each fragment samples
+     * the source midway between four texels, so bilinear filtering yields a 2×2 box average.
+     */
+    val FRAG_DOWNSAMPLE = """
+        #version 300 es
+        precision highp float;
+        in vec2 vUv;
+        uniform sampler2D uTex;
+        out vec4 outColor;
+        void main() { outColor = texture(uTex, vUv); }
+    """.trimIndent()
+
+    /**
+     * Acuity/FOV combination (mirrors CpuRenderer's acuity stage — see Acuity.plan):
+     *  - uCentral: frame blurred to the species' central acuity (or the sharp frame);
+     *  - uPeriph: frame blurred to the peripheral acuity, blended in outside the
+     *    binocular zone by the FOV mask;
+     *  - bounded halo-free foveal sharpening (eagle) against uUnsharp, weighted by uBoost;
+     *  - blind-spot attenuation for mask values below the peripheral level.
+     */
+    val FRAG_ACUITY_COMBINE = """
+        #version 300 es
+        precision highp float;
+        in vec2 vUv;
+        uniform sampler2D uSharp;
+        uniform sampler2D uCentral;
+        uniform sampler2D uPeriph;
+        uniform sampler2D uUnsharp;
+        uniform sampler2D uFovMask;
+        uniform sampler2D uBoost;
+        uniform int uFovOn;
+        uniform int uUseUnsharp;
+        uniform float uPeripheral;   // plan.peripheralScalar
+        uniform float uSharpenAmount;
+        out vec4 outColor;
+        void main() {
+            float m = (uFovOn == 1) ? texture(uFovMask, vUv).r : 1.0;
+            float t = (uPeripheral >= 1.0) ? 1.0 : clamp((m - uPeripheral) / (1.0 - uPeripheral), 0.0, 1.0);
+            float vis = 0.05 + 0.95 * clamp(m / uPeripheral, 0.0, 1.0);
+            vec3 central = texture(uCentral, vUv).rgb;
+            vec3 periph = texture(uPeriph, vUv).rgb;
+            vec3 combined = mix(periph, central, t);
+            if (uUseUnsharp == 1) {
+                vec3 sharp = texture(uSharp, vUv).rgb;
+                vec3 detail = clamp(sharp - texture(uUnsharp, vUv).rgb, vec3(-0.05), vec3(0.05));
+                combined += detail * uSharpenAmount * texture(uBoost, vUv).r;
+            }
             outColor = vec4(clamp(combined * vis, 0.0, 1.0), 1.0);
         }
     """.trimIndent()

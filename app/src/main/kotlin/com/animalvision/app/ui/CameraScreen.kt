@@ -249,7 +249,7 @@ fun CameraScreen(
 
             // Reserved space for the animal selector strip (rendered by the activity
             // above this screen), so the two never collide.
-            Spacer(Modifier.height(if (isLandscape) 76.dp else 88.dp))
+            Spacer(Modifier.height(AnimalSelectorHeight))
         }
     }
 }

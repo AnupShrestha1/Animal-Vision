@@ -65,44 +65,33 @@ class CpuRenderer(
         }
 
         // 4/5. acuity (spatial-frequency rolloff) blended by FOV geometry mask
-        val mask = if (active(StageId.FOV)) Fov.acuityMask(profile, width, height) else FloatArray(n) { 1f }
+        // (mirrors the GPU acuity-combine pass in Shaders2.FRAG_ACUITY_COMBINE)
         if (active(StageId.ACUITY)) {
-            val sigma = Acuity.effectiveSigma(profile.acuity)
-            val rA = FloatArray(n); val gA = FloatArray(n); val bA = FloatArray(n)
-            if (sigma > 0.0) {
-                Acuity.blurChannel(r, rA, width, height, sigma)
-                Acuity.blurChannel(g, gA, width, height, sigma)
-                Acuity.blurChannel(b, bA, width, height, sigma)
-            } else {
-                r.copyInto(rA); g.copyInto(gA); b.copyInto(bA)
-            }
+            val mask = if (active(StageId.FOV)) Fov.acuityMask(profile, width, height) else FloatArray(n) { 1f }
+            val plan = Acuity.plan(profile.acuity, width, height)
+            val src = arrayOf(r, g, b)
+            fun blurred(sigma: Double): Array<FloatArray> =
+                if (sigma == 0.0) src
+                else Array(3) { c -> FloatArray(n).also { Acuity.blurChannel(src[c], it, width, height, sigma) } }
+            val central = blurred(plan.centralSigma)
+            val periph = if (plan.peripheralSigma == plan.centralSigma) central else blurred(plan.peripheralSigma)
+            val unsharp = if (plan.unsharpSigma > 0.0) blurred(plan.unsharpSigma) else null
+            val boost = if (unsharp != null) Fov.sharpBoostMask(profile, width, height) else null
+            val out = Array(3) { FloatArray(n) }
             for (i in 0 until n) {
-                val m = mask[i]
-                r[i] = r[i] * m + rA[i] * (1f - m)
-                g[i] = g[i] * m + gA[i] * (1f - m)
-                b[i] = b[i] * m + bA[i] * (1f - m)
-            }
-
-            // eagle-style foveal sharpening — bounded and halo-free
-            val boost = Fov.sharpBoostMask(profile, width, height)
-            if (boost.any { it > 0f }) {
-                val rS = FloatArray(n); val gS = FloatArray(n); val bS = FloatArray(n)
-                val sh = Math.max(0.8, sigma)
-                Acuity.sharpenChannel(r, rS, width, height, sh, 0.35)
-                Acuity.sharpenChannel(g, gS, width, height, sh, 0.35)
-                Acuity.sharpenChannel(b, bS, width, height, sh, 0.35)
-                for (i in 0 until n) {
-                    val amp = boost[i]
-                    r[i] = r[i] * (1f - amp) + rS[i] * amp
-                    g[i] = g[i] * (1f - amp) + gS[i] * amp
-                    b[i] = b[i] * (1f - amp) + bS[i] * amp
+                val t = Fov.centralWeight(mask[i], plan.peripheralScalar)
+                val vis = Fov.visibility(mask[i], plan.peripheralScalar)
+                for (c in 0..2) {
+                    var v = periph[c][i] + (central[c][i] - periph[c][i]) * t
+                    if (unsharp != null && boost != null) {
+                        // eagle-style foveal sharpening — bounded and halo-free
+                        val detail = (src[c][i] - unsharp[c][i]).coerceIn(-0.05f, 0.05f)
+                        v += detail * Acuity.SHARPEN_AMOUNT.toFloat() * boost[i]
+                    }
+                    out[c][i] = (v * vis).coerceIn(0f, 1f)
                 }
             }
-            // blind-spot darkening (near-invisible where the mask is ~0)
-            for (i in 0 until n) {
-                val vis = 0.05f + 0.95f * mask[i]
-                r[i] *= vis; g[i] *= vis; b[i] *= vis
-            }
+            out[0].copyInto(r); out[1].copyInto(g); out[2].copyInto(b)
         }
 
         // 6. special vision — thermal simulation only (UV is part of the color LUT)
