@@ -65,9 +65,13 @@ class AnimalGlRenderer(
     // ---- species LUT: generated off-thread, newest request wins ----
     private val lutExecutor = Executors.newSingleThreadExecutor()
     private val lutGeneration = AtomicInteger()
-    private val pendingLut = AtomicReference<Lut?>(null)
+    private val pendingLut = AtomicReference<Pair<String, Lut>?>(null)
     @Volatile private var requestedProfileId: String? = null
-    private var lastLut: Lut? = null
+    private var lastLut: Pair<String, Lut>? = null
+
+    /** Profile id whose LUT is currently on the GPU (lets device tests wait for it). */
+    @Volatile internal var uploadedLutProfileId: String? = null
+        private set
     private var lutTexture = 0
 
     @Volatile private var displayRotationDeg = 0
@@ -194,6 +198,7 @@ class AnimalGlRenderer(
         GlPipeline.resetContextState()
         targets = null
         lutTexture = 0
+        uploadedLutProfileId = null
         lastLut?.let { pendingLut.compareAndSet(null, it) }
 
         oesProg = GlPipeline.compileProgram(Shaders.VERT, Shaders.FRAG_OES)
@@ -327,15 +332,17 @@ class AnimalGlRenderer(
             if (generation != lutGeneration.get()) return@execute // superseded before it started
             val lut = LutGenerator.generate(ColorTransform(profile), profile.colorVision.lutSize)
             // The executor is serial, so a later request always publishes after this one.
-            if (generation == lutGeneration.get()) pendingLut.set(lut)
+            if (generation == lutGeneration.get()) pendingLut.set(profile.id to lut)
         }
     }
 
     private fun uploadPendingLut() {
-        val lut = pendingLut.getAndSet(null) ?: return
+        val pending = pendingLut.getAndSet(null) ?: return
+        val (profileId, lut) = pending
         if (lutTexture != 0) GLES30.glDeleteTextures(1, intArrayOf(lutTexture), 0)
         lutTexture = GlPipeline.createLutTexture3d(lut.data, lut.size)
-        lastLut = lut
+        lastLut = pending
+        uploadedLutProfileId = profileId
     }
 
     // ---- per-frame pipeline -----------------------------------------------------
@@ -459,7 +466,6 @@ class AnimalGlRenderer(
     }
 
     private fun renderPipeline(t: FrameTargets, profile: AnimalVisionProfile, tier: QualityTier, mode: Int) {
-        t.ensureMasks(profile)
         val (cropX, cropY) = computeCrop(t.w, t.h)
 
         // 1. RAW linear camera (for before/after "normal" side)
@@ -506,8 +512,17 @@ class AnimalGlRenderer(
             setTex(combineProg, "uCentral", 1, central)
             setTex(combineProg, "uPeriph", 2, periph)
             setTex(combineProg, "uUnsharp", 3, unsharp)
-            setTex(combineProg, "uFovMask", 4, t.maskFov)
-            setTex(combineProg, "uBoost", 5, t.maskBoost)
+            val mask = Fov.maskParams(profile)
+            GLES30.glUniform1f(GlPipeline.uniform(combineProg, "uHalfWidth"), mask.halfWidth.toFloat())
+            GLES30.glUniform1f(GlPipeline.uniform(combineProg, "uYAspect"), mask.yAspect.toFloat())
+            GLES30.glUniform1f(GlPipeline.uniform(combineProg, "uMaskPeripheral"), mask.peripheral.toFloat())
+            GLES30.glUniform1i(GlPipeline.uniform(combineProg, "uMuzzle"), if (mask.muzzleBlindSpot) 1 else 0)
+            GLES30.glUniform1f(GlPipeline.uniform(combineProg, "uBoostAmp"), Fov.boostAmplitude(profile).toFloat())
+            GLES30.glUniform1f(
+                GlPipeline.uniform(combineProg, "uBoostSigmaPx"),
+                (Fov.BOOST_SIGMA_FRAC * Math.min(t.w, t.h)).toFloat(),
+            )
+            GLES30.glUniform2f(GlPipeline.uniform(combineProg, "uResolution"), t.w.toFloat(), t.h.toFloat())
             GLES30.glUniform1i(GlPipeline.uniform(combineProg, "uFovOn"), if (fovOn) 1 else 0)
             GLES30.glUniform1i(GlPipeline.uniform(combineProg, "uUseUnsharp"), if (plan.unsharpSigma > 0.0) 1 else 0)
             GLES30.glUniform1f(GlPipeline.uniform(combineProg, "uPeripheral"), plan.peripheralScalar.toFloat())
@@ -528,6 +543,9 @@ class AnimalGlRenderer(
         // Honors StageId.FOV tier gating (PERFORMANCE tier drops the stage -> no warp).
         val warp = if (fovOn) Fov.warpCoefficients(profile) else floatArrayOf(0f, 0f)
         GLES30.glUniform2fv(GlPipeline.uniform(finalProg, "uWarp"), 1, warp, 0)
+        val polar = Pipeline.isActive(profile, StageId.SPECIAL, tier) && profile.specialVision.polarizationSimulation
+        GLES30.glUniform1i(GlPipeline.uniform(finalProg, "uPolar"), if (polar) 1 else 0)
+        GLES30.glUniform2f(GlPipeline.uniform(finalProg, "uResolution"), t.w.toFloat(), t.h.toFloat())
         GlPrimitives.drawFsQuad()
     }
 

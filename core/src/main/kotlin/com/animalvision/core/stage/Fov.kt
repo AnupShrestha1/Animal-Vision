@@ -26,33 +26,69 @@ object Fov {
         return t
     }
 
-    /** Returns a 0..1 per-pixel acuity/visibility mask. 1 = full acuity, 0 = (near) blind. */
-    fun acuityMask(profile: AnimalVisionProfile, width: Int, height: Int): FloatArray {
+    /**
+     * Parameters of [acuityMask], shared with the GPU combine shader (which evaluates the same
+     * formula per fragment) so the two cannot drift apart.
+     */
+    data class MaskParams(
+        /** Half-width of the binocular band in normalized frame units (frame = -1..1). */
+        val halfWidth: Double,
+        /** Vertical extent of the band relative to [halfWidth]. */
+        val yAspect: Double,
+        /** Mask value outside the binocular band. */
+        val peripheral: Double,
+        /** Lower-centre blind wedge below/just in front of the muzzle (horse). */
+        val muzzleBlindSpot: Boolean,
+    )
+
+    /** Muzzle wedge: frame region ny > [MUZZLE_NY] and |nx| < [MUZZLE_NX] (y down), scaled by [MUZZLE_FACTOR]. */
+    const val MUZZLE_NY = 0.35
+    const val MUZZLE_NX = 0.18
+    const val MUZZLE_FACTOR = 0.15
+
+    fun maskParams(profile: AnimalVisionProfile): MaskParams {
         val binWidth = profile.fieldOfView.binocularWidthDeg.coerceAtMost(VIEW_FOV_DEGREES)
-        val hw = (binWidth / VIEW_FOV_DEGREES).coerceIn(0.05, 1.0) / 2.0
-        val peripheral = profile.acuity.peripheralScalar.coerceIn(0.0, 1.0)
-        val yAspect = 0.55
+        return MaskParams(
+            halfWidth = (binWidth / VIEW_FOV_DEGREES).coerceIn(0.05, 1.0) / 2.0,
+            yAspect = 0.55,
+            peripheral = profile.acuity.peripheralScalar.coerceIn(0.0, 1.0),
+            muzzleBlindSpot = profile.id == "horse",
+        )
+    }
+
+    /** Mask value at normalized frame coordinates ([nx], [ny] in -1..1, y pointing down). */
+    fun maskAt(p: MaskParams, nx: Double, ny: Double): Double {
+        val hw = p.halfWidth
+        // binocular band factor: 1 inside cone, smooth fade outside
+        val xEdge = (hw - Math.abs(nx)) / (hw * 0.5 + 1e-6) + 0.5
+        val yEdge = (p.yAspect * hw - Math.abs(ny)) / (p.yAspect * hw * 0.5 + 1e-6) + 0.5
+        val binFactor = smoothstep(xEdge) * smoothstep(yEdge)
+        var mask = p.peripheral + (1.0 - p.peripheral) * binFactor
+        if (p.muzzleBlindSpot && ny > MUZZLE_NY && Math.abs(nx) < MUZZLE_NX) mask *= MUZZLE_FACTOR
+        return mask
+    }
+
+    /** Returns a 0..1 per-pixel acuity/visibility mask (row-major, top row first). 1 = full acuity. */
+    fun acuityMask(profile: AnimalVisionProfile, width: Int, height: Int): FloatArray {
+        val p = maskParams(profile)
         val out = FloatArray(width * height)
-        val cx = width / 2.0
-        val cy = height / 2.0
+        // Pixel centres, so the CPU and the per-fragment GPU evaluation sample the same points.
         for (y in 0 until height) {
+            val ny = (y + 0.5) / height * 2.0 - 1.0
             for (x in 0 until width) {
-                val nx = (x - cx) / cx
-                val ny = (y - cy) / cy
-                // binocular band factor: 1 inside cone, smooth fade outside
-                val xEdge = (hw - Math.abs(nx)) / (hw * 0.5 + 1e-6) + 0.5
-                val yEdge = (yAspect * hw - Math.abs(ny)) / (yAspect * hw * 0.5 + 1e-6) + 0.5
-                val binFactor = smoothstep(xEdge) * smoothstep(yEdge)
-                var mask = peripheral + (1.0 - peripheral) * binFactor
-                // horse muzzle blind spot: lower-center wedge (object below/just in front of the nose)
-                if (profile.id == "horse") {
-                    if (ny > 0.35 && Math.abs(nx) < 0.18) mask *= 0.15
-                }
-                out[y * width + x] = mask.toFloat()
+                val nx = (x + 0.5) / width * 2.0 - 1.0
+                out[y * width + x] = maskAt(p, nx, ny).toFloat()
             }
         }
         return out
     }
+
+    /** Foveal boost amplitude (0 = none) for [sharpBoostMask]. */
+    fun boostAmplitude(profile: AnimalVisionProfile): Double =
+        (profile.acuity.centralScalar - 1.0).coerceAtLeast(0.0)
+
+    /** Gaussian width of the foveal boost as a fraction of the frame's shorter side. */
+    const val BOOST_SIGMA_FRAC = 0.22
 
     /**
      * Weight of the central-acuity image (vs the extra-blurred peripheral one) for an
@@ -75,8 +111,8 @@ object Fov {
 
     /**
      * 0..1 per-pixel boost mask for species with a high-acuity central region (eagle fovea). */
-    fun sharpBoostMask(profile: AnimalVisionProfile, width: Int, height: Int, sigmaFrac: Double = 0.22): FloatArray {
-        val amp = (profile.acuity.centralScalar - 1.0).coerceAtLeast(0.0)
+    fun sharpBoostMask(profile: AnimalVisionProfile, width: Int, height: Int, sigmaFrac: Double = BOOST_SIGMA_FRAC): FloatArray {
+        val amp = boostAmplitude(profile)
         val out = FloatArray(width * height)
         if (amp <= 0.0) return out
         val cx = width / 2.0
@@ -84,8 +120,8 @@ object Fov {
         val sigma = sigmaFrac * Math.min(width, height)
         for (y in 0 until height) {
             for (x in 0 until width) {
-                val dx = (x - cx) / sigma
-                val dy = (y - cy) / sigma
+                val dx = (x + 0.5 - cx) / sigma
+                val dy = (y + 0.5 - cy) / sigma
                 val g = Math.exp(-0.5 * (dx * dx + dy * dy))
                 out[y * width + x] = (amp * g).coerceAtMost(1.0).toFloat()
             }

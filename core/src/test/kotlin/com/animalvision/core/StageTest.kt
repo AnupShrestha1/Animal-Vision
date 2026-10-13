@@ -4,6 +4,7 @@ import com.animalvision.core.profiles.getProfile
 import com.animalvision.core.stage.Acuity
 import com.animalvision.core.stage.Fov
 import com.animalvision.core.stage.LowLight
+import com.animalvision.core.stage.Motion
 import com.animalvision.core.stage.SpecialVision
 import com.animalvision.core.stage.ToneMap
 import com.animalvision.core.model.QualityTier
@@ -217,6 +218,34 @@ class StageTest {
         assertThat(ToneMap.filmic(5.0)).isAtMost(1.0)
         // monotonic across the knee
         assertThat(ToneMap.filmic(0.91)).isGreaterThan(ToneMap.filmic(0.9))
+    }
+
+    @Test
+    fun `polarization cue marks bright neutral glare, not colors or shadows`() {
+        val glare = SpecialVision.polarizationStrength(doubleArrayOf(0.95, 0.95, 0.92))
+        val saturatedRed = SpecialVision.polarizationStrength(doubleArrayOf(0.95, 0.05, 0.05))
+        val shadow = SpecialVision.polarizationStrength(doubleArrayOf(0.1, 0.1, 0.1))
+        assertThat(glare).isGreaterThan(0.8)
+        assertThat(saturatedRed).isLessThan(0.05)
+        assertThat(shadow).isEqualTo(0.0)
+    }
+
+    @Test
+    fun `motion stage explains fast temporal vision and stays quiet otherwise`() {
+        assertThat(Motion.disclosure(getProfile("bee")!!)).contains("250 Hz")
+        assertThat(Motion.disclosure(getProfile("fly")!!)).isNotNull()
+        assertThat(Motion.disclosure(getProfile("human")!!)).isNull()
+        assertThat(Motion.disclosure(getProfile("cat")!!)).isNull()   // 55 Hz = human
+        assertThat(Motion.disclosure(getProfile("horse")!!)).isNull() // unknown
+    }
+
+    @Test
+    fun `every declared stage is implemented by the renderers`() {
+        // EXPOSURE was declared but never rendered; the enum now only lists real stages.
+        assertThat(StageId.entries.map { it.name }).doesNotContain("EXPOSURE")
+        val bee = SpecialVision.disclosureBadges(getProfile("bee")!!).joinToString()
+        assertThat(bee).contains("Polarization is a labeled SIMULATION")
+        assertThat(bee).contains("described, not shown")
     }
 
     private fun getProfilesAll() = com.animalvision.core.profiles.profileRegistry

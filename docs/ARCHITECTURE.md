@@ -77,10 +77,16 @@ happens only in the final pass.
 | 2 | Camera → species LUT | 33³ LUT from `LutGenerator`; plain feed until the first LUT lands |
 | 3 | Low light | shadow lift + rod desaturation + bounded noise (`BRIGHTNESS` stage) |
 | 4 | Acuity | `Acuity.plan` → pyramid blurs (central, peripheral, foveal unsharp) → FOV combine |
-| 5 | Final | FOV warp, thermal simulation, highlight shoulder (identity below 0.9), sRGB, before/after mode |
+| 5 | Final | FOV warp, thermal simulation, polarization cue, highlight shoulder (identity below 0.9), sRGB, before/after mode |
 | 6 | Screen | final target → window; also copied to the encoder surface while recording |
 
 Only stages listed in the profile for the current tier run (`Pipeline.activeStages`).
+
+The **MOTION** stage renders nothing on purpose: every measured flicker-fusion rate in the
+catalog (cat 55 Hz … bee 250 Hz) is at or above human, while the camera delivers ~30 frames/s.
+`Motion.disclosure` states the rate and why it cannot be shown instead of faking an effect.
+There is no separate exposure stage — the camera's auto-exposure and the LUT's von-Kries white
+normalization cover it.
 
 ### Acuity model
 
@@ -113,11 +119,13 @@ run at half resolution, the bee's ≈ 30 px blur at 1/16. The Performance tier g
 
 - **Auto-degradation:** a 2 s FPS window; two consecutive windows under 20 fps request one
   tier step down (repeatable until Performance). The user can raise it again in Settings.
-- **Resources:** `FrameTargets` owns every per-size texture/FBO/mask and is released as a
+- **Resources:** `FrameTargets` owns every per-size texture/FBO and is released as a
   unit on resize, so tier changes and rotation never leak GPU memory. On EGL context loss
   all ids are dropped, programs recompiled, the last LUT re-uploaded, and the camera re-bound
   to the new `SurfaceTexture`.
 - **Uniform locations** are cached per program (`GlPipeline.uniform`).
+- **FOV masks** are evaluated per fragment in the combine shader from `Fov.MaskParams` — the
+  same formula as `Fov.acuityMask` on the CPU — so switching animals costs no CPU mask build.
 
 ## 6. Capture
 
@@ -148,7 +156,7 @@ generic trichromat, bird tetrachromat. See SCIENCE.md for per-species values.
 |---|---|---|
 | Receptor-based color mapping (LUTs) | UV channel (bee, fly, birds) — no UV sensor | True UV detection |
 | Tone / contrast / low-light transforms | Thermal palette (snake) — no IR sensor | True thermal detection |
-| Acuity reduction by spatial filtering | Polarization (bee, mantis shrimp) | Polarization measurement |
+| Acuity reduction by spatial filtering | Polarization cue: hatched glare (bee, butterfly, octopus, mantis shrimp) | Polarization measurement |
 | FOV *geometry* (masks, warp) | Eagle foveal detail boost | A field wider than the lens |
 | | | Neural processing / inner experience |
 
@@ -169,4 +177,10 @@ only on Android 8–9 (API 26–28) is storage write access requested, at the fi
 - **CpuRendererTest** — scene-level checks on a synthetic chart (dichromat red/green collapse,
   bee red chip darkest, horse blind spot, low-acuity centre blur, thermal output, determinism).
 
-The GPU path mirrors `CpuRenderer`; GPU behavior is verified on device.
+**GPU tests** (`app/src/androidTest`, `GpuPipelineTest`) run the real renderer offscreen on a
+device against a known camera frame: photo readback and orientation, the horse blind spot's
+position, GPU-vs-CPU parity (bee), and recorded-video duration and orientation. Run them with
+`./gradlew :app:connectedDebugAndroidTest`.
+
+**CI** (`.github/workflows/ci.yml`) runs the core tests, builds the app and test APKs, and runs
+Android lint (errors fail the build) on every push and pull request.

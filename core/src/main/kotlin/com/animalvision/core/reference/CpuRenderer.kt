@@ -105,6 +105,18 @@ class CpuRenderer(
             }
         }
 
+        // 6b. simulated polarization cue (mirrors Shaders2.FRAG_FINAL)
+        if (active(StageId.SPECIAL) && profile.specialVision.polarizationSimulation) {
+            for (i in 0 until n) {
+                val p = SpecialVision.applyPolarizationOverlay(
+                    doubleArrayOf(r[i].toDouble(), g[i].toDouble(), b[i].toDouble()),
+                    x = i % width,
+                    y = i / width,
+                )
+                r[i] = p[0].toFloat(); g[i] = p[1].toFloat(); b[i] = p[2].toFloat()
+            }
+        }
+
         // 7. tone map + sRGB encode
         val out = IntArray(n)
         for (i in 0 until n) {

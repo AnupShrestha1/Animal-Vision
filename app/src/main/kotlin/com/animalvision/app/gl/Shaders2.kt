@@ -1,7 +1,15 @@
 package com.animalvision.app.gl
 
+import com.animalvision.core.stage.Fov
+import com.animalvision.core.stage.SpecialVision
+
 /** Remaining pipeline shaders (blur passes + final composite) — separated for readability. */
 object Shaders2 {
+    private const val MUZZLE_NY = Fov.MUZZLE_NY
+    private const val MUZZLE_NX = Fov.MUZZLE_NX
+    private const val MUZZLE_FACTOR = Fov.MUZZLE_FACTOR
+    private const val POLARIZATION_STRIPE_PX = SpecialVision.POLARIZATION_STRIPE_PX
+
 
     /** Separable Gaussian blur, horizontal pass. */
     val FRAG_BLUR_H = """
@@ -65,7 +73,8 @@ object Shaders2 {
      *  - uCentral: frame blurred to the species' central acuity (or the sharp frame);
      *  - uPeriph: frame blurred to the peripheral acuity, blended in outside the
      *    binocular zone by the FOV mask;
-     *  - bounded halo-free foveal sharpening (eagle) against uUnsharp, weighted by uBoost;
+     *  - bounded halo-free foveal sharpening (eagle) against uUnsharp, weighted by the
+     *    analytic foveal boost;
      *  - blind-spot attenuation for mask values below the peripheral level.
      */
     val FRAG_ACUITY_COMBINE = """
@@ -76,15 +85,33 @@ object Shaders2 {
         uniform sampler2D uCentral;
         uniform sampler2D uPeriph;
         uniform sampler2D uUnsharp;
-        uniform sampler2D uFovMask;
-        uniform sampler2D uBoost;
         uniform int uFovOn;
+        // FOV mask parameters (Fov.MaskParams) — evaluated per fragment, mirroring Fov.maskAt.
+        uniform float uHalfWidth;
+        uniform float uYAspect;
+        uniform float uMaskPeripheral;
+        uniform int uMuzzle;
+        // Foveal boost (Fov.sharpBoostMask): amplitude and Gaussian sigma in pixels.
+        uniform float uBoostAmp;
+        uniform float uBoostSigmaPx;
+        uniform vec2 uResolution;
         uniform int uUseUnsharp;
         uniform float uPeripheral;   // plan.peripheralScalar
         uniform float uSharpenAmount;
         out vec4 outColor;
+        float ss(float t) { t = clamp(t, 0.0, 1.0); return t * t * (3.0 - 2.0 * t); }
+        float fovMask(vec2 uv) {
+            float nx = uv.x * 2.0 - 1.0;
+            float ny = (1.0 - uv.y) * 2.0 - 1.0; // frame y points down, as in Fov.maskAt
+            float hw = uHalfWidth;
+            float xEdge = (hw - abs(nx)) / (hw * 0.5 + 1e-6) + 0.5;
+            float yEdge = (uYAspect * hw - abs(ny)) / (uYAspect * hw * 0.5 + 1e-6) + 0.5;
+            float m = uMaskPeripheral + (1.0 - uMaskPeripheral) * ss(xEdge) * ss(yEdge);
+            if (uMuzzle == 1 && ny > ${MUZZLE_NY} && abs(nx) < ${MUZZLE_NX}) m *= ${MUZZLE_FACTOR};
+            return m;
+        }
         void main() {
-            float m = (uFovOn == 1) ? texture(uFovMask, vUv).r : 1.0;
+            float m = (uFovOn == 1) ? fovMask(vUv) : 1.0;
             float t = (uPeripheral >= 1.0) ? 1.0 : clamp((m - uPeripheral) / (1.0 - uPeripheral), 0.0, 1.0);
             float vis = 0.05 + 0.95 * clamp(m / uPeripheral, 0.0, 1.0);
             vec3 central = texture(uCentral, vUv).rgb;
@@ -93,7 +120,9 @@ object Shaders2 {
             if (uUseUnsharp == 1) {
                 vec3 sharp = texture(uSharp, vUv).rgb;
                 vec3 detail = clamp(sharp - texture(uUnsharp, vUv).rgb, vec3(-0.05), vec3(0.05));
-                combined += detail * uSharpenAmount * texture(uBoost, vUv).r;
+                vec2 d = (vUv - 0.5) * uResolution / uBoostSigmaPx;
+                float boost = min(uBoostAmp * exp(-0.5 * dot(d, d)), 1.0);
+                combined += detail * uSharpenAmount * boost;
             }
             outColor = vec4(clamp(combined * vis, 0.0, 1.0), 1.0);
         }
@@ -116,6 +145,8 @@ object Shaders2 {
         uniform int uMode;      // 0 normal, 1 animal, 2 split
         uniform int uThermal;   // 1 = apply thermal simulation
         uniform vec2 uWarp;     // (kx, ky): >0 panoramic prey wrap, <0 foveal tunnel, 0 = none
+        uniform int uPolar;     // 1 = simulated polarization cue (SpecialVision.applyPolarizationOverlay)
+        uniform vec2 uResolution;
         out vec4 outColor;
         vec3 thermalPalette(float x) {
             if (x < 0.25) { float s = x / 0.25; return vec3(0.0, 0.0, 0.5 * s); }
@@ -147,6 +178,18 @@ object Shaders2 {
                 float luma = dot(proc, vec3(0.2126, 0.7152, 0.0722));
                 float t = round(luma * 6.0) / 6.0;
                 proc = thermalPalette(t) * (0.35 + 0.65 * luma);
+            }
+            if (uPolar == 1) {
+                // Mirrors SpecialVision.polarizationStrength / applyPolarizationOverlay.
+                float luma = dot(proc, vec3(0.2126, 0.7152, 0.0722));
+                float mx = max(proc.r, max(proc.g, proc.b));
+                float mn = min(proc.r, min(proc.g, proc.b));
+                float sat = mx > 1e-6 ? (mx - mn) / mx : 0.0;
+                float k = smoothstep(0.55, 0.85, luma) * (1.0 - smoothstep(0.15, 0.4, sat));
+                // Integer pixel coordinates with a top-left origin, like the CPU reference.
+                vec2 px = vec2(floor(gl_FragCoord.x), uResolution.y - 1.0 - floor(gl_FragCoord.y));
+                float stripe = fract((px.x + px.y) / ${POLARIZATION_STRIPE_PX}) < 0.5 ? 1.0 : 0.0;
+                proc = mix(proc, vec3(0.15, 0.85, 1.0), 0.55 * k * stripe);
             }
             vec3 animal = linearToSrgb(filmic(proc));
             vec3 normal = linearToSrgb(filmic(raw));

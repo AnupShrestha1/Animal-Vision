@@ -89,7 +89,7 @@ val beeProfile = AnimalVisionProfile(
         ),
         limitations = listOf(
             "Phone cameras have no usable UV response; the UV channel is a proxy and is always labeled as such.",
-            "Polarization is simulated from solar-position heuristics, not measured.",
+            "Polarization is a simulated cue: bright glare (light polarized by reflection) is hatched; the skylight polarization pattern bees navigate by is not modeled, and nothing is measured.",
             "Compound-eye neural processing (motion vision, superposition) cannot be reproduced.",
         ),
     ),

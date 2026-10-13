@@ -131,6 +131,20 @@ class CpuRendererTest {
     }
 
     @Test
+    fun `polarization species hatch bright glare and others do not`() {
+        val s = Scene(40, 40)
+        s.fill(0, 0, 40, 40, 0xfff4f4f0.toInt()) // bright, nearly neutral glare
+        fun rowSpread(id: String): Int {
+            val out = render(id, s, 40, 40)
+            val row = 20
+            val reds = (0 until 40).map { (out[row * 40 + it] ushr 16) and 0xff }
+            return reds.max() - reds.min()
+        }
+        assertThat(rowSpread("octopus")).isGreaterThan(10)
+        assertThat(rowSpread("human")).isAtMost(2)
+    }
+
+    @Test
     fun `all renders are deterministic`() {
         val a = render("cat", chipScene())
         val b = render("cat", chipScene())

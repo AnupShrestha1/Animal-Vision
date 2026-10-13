@@ -18,9 +18,12 @@ enum class Confidence(val stars: Int) {
 /** Whether a scientific parameter is directly measured, inferred, or a modeling approximation. */
 enum class SourceType { MEASURED, INFERRED, MODELED }
 
-/** Stages of the GPU pipeline (spec §7). Only those listed in a profile are activated. */
+/**
+ * Stages of the GPU pipeline (spec §7). Only those listed in a profile are activated.
+ * Exposure/white-point normalization is not a stage of its own: the camera's auto-exposure
+ * and the color LUT's von-Kries white normalization already perform it.
+ */
 enum class StageId {
-    EXPOSURE,
     COLOR,
     BRIGHTNESS,
     ACUITY,

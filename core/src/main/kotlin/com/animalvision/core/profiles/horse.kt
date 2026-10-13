@@ -31,10 +31,10 @@ val horseProfile = AnimalVisionProfile(
     researchUpdated = "2025-06-01",
     pipeline = PipelineSpec(
         stages = listOf(
-            StageId.EXPOSURE, StageId.COLOR, StageId.BRIGHTNESS, StageId.ACUITY, StageId.FOV, StageId.TONEMAP,
+            StageId.COLOR, StageId.BRIGHTNESS, StageId.ACUITY, StageId.FOV, StageId.TONEMAP,
         ),
         qualityVariants = mapOf(
-            QualityTier.HIGH to listOf(StageId.EXPOSURE, StageId.COLOR, StageId.BRIGHTNESS, StageId.ACUITY, StageId.FOV, StageId.TONEMAP),
+            QualityTier.HIGH to listOf(StageId.COLOR, StageId.BRIGHTNESS, StageId.ACUITY, StageId.FOV, StageId.TONEMAP),
             QualityTier.BALANCED to listOf(StageId.COLOR, StageId.ACUITY, StageId.FOV, StageId.TONEMAP),
             QualityTier.PERFORMANCE to listOf(StageId.COLOR, StageId.FOV, StageId.TONEMAP),
         ),

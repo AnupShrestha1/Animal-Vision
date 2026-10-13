@@ -11,7 +11,6 @@ import com.animalvision.core.model.StageId
 object Pipeline {
 
     val defaultOrder: List<StageId> = listOf(
-        StageId.EXPOSURE,
         StageId.COLOR,
         StageId.BRIGHTNESS,
         StageId.ACUITY,

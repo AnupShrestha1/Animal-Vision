@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -27,6 +27,8 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import com.animalvision.core.model.AnimalVisionProfile
 import com.animalvision.core.model.SourceType
+import com.animalvision.core.stage.Motion
+import com.animalvision.core.stage.SpecialVision
 
 /**
  * Full-screen scientific info panel (spec §21): color/acuity/FOV/low-light facts,
@@ -45,7 +47,7 @@ fun AnimalInfoScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
+                .safeDrawingPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp),
         ) {
@@ -164,11 +166,20 @@ fun AnimalInfoScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = AvTextPrimary,
                 )
+                Motion.disclosure(profile)?.let { note ->
+                    Text(
+                        text = note,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AvWarning,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
             }
 
             val specialLines = buildList {
                 profile.specialVision.ultraviolet?.let { add("Ultraviolet: ${it.falseColorLabel}") }
                 profile.specialVision.infrared?.let { add("Infrared: ${it.label}") }
+                if (profile.specialVision.polarizationSimulation) add(SpecialVision.POLARIZATION_DISCLOSURE)
                 addAll(profile.specialVision.notes)
             }
             if (specialLines.isNotEmpty()) {

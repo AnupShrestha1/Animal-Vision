@@ -203,7 +203,7 @@ True 140 c/deg exceeds hardware — simulation is a visualization. Species vary 
 |---|---|---|---|
 | Bees detect skylight polarization (dorsal rim area) for navigation | Wehner & Labhart (2006) | █████ | M |
 
-**Transformation (A):** polarization is **simulated** (a labeled overlay in the sky region using solar-position heuristics), never claimed as measured.
+**Transformation (A):** polarization is **simulated** as a labeled cue: bright, low-saturation glare — light that reflection polarizes most strongly (Brewster) — is hatched (`SpecialVision.polarizationStrength`). The skylight pattern bees navigate by would need the sun's position and is not modeled. Nothing is ever claimed as measured.
 
 ### FOV
 | Fact | Source | Conf. | Type |

@@ -28,6 +28,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.animalvision.app.DisplayMode
 import com.animalvision.core.model.AnimalVisionProfile
+import com.animalvision.core.stage.Motion
+import com.animalvision.core.stage.SpecialVision
 
 /**
  * Compact educational overlay above the capture controls (spec §22): species fact,
@@ -36,17 +38,23 @@ import com.animalvision.core.model.AnimalVisionProfile
 @Composable
 fun EducationalOverlay(
     profile: AnimalVisionProfile,
-    onOpenInfo: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    onOpenInfo: (() -> Unit)? = null,
 ) {
-    val simulationNote = when {
-        profile.specialVision.ultraviolet != null ->
-            "UV channel is a labeled SIMULATION — phone cameras cannot see ultraviolet."
-        profile.specialVision.infrared != null ->
-            "Thermal view is a labeled SIMULATION — an RGB camera cannot detect infrared."
-        profile.lowLight.enabled ->
-            "Low-light: ~${profile.lowLight.sensitivity}× human sensitivity (modeled)."
-        else -> null
+    // Every applicable notice is shown: a species can carry several simulated channels
+    // (the bee has UV, polarization, and fast temporal vision) and none may be hidden.
+    val notes = buildList {
+        if (profile.specialVision.ultraviolet != null) {
+            add("UV channel is a labeled SIMULATION — phone cameras cannot see ultraviolet.")
+        }
+        if (profile.specialVision.infrared != null) {
+            add("Thermal view is a labeled SIMULATION — an RGB camera cannot detect infrared.")
+        }
+        if (profile.specialVision.polarizationSimulation) add(SpecialVision.POLARIZATION_DISCLOSURE)
+        Motion.disclosure(profile)?.let { add(it) }
+        if (profile.lowLight.enabled) {
+            add("Low-light: ~${profile.lowLight.sensitivity}× human sensitivity (modeled).")
+        }
     }
     Column(
         modifier = modifier
@@ -71,7 +79,7 @@ fun EducationalOverlay(
             color = Color.White.copy(alpha = 0.9f),
             textAlign = TextAlign.Center,
         )
-        if (simulationNote != null) {
+        notes.forEach { simulationNote ->
             Spacer(Modifier.height(4.dp))
             Text(
                 text = simulationNote,
