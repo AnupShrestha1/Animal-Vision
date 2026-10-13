@@ -68,6 +68,10 @@ object Shaders2 {
     /**
      * Final pass: optional thermal simulation, filmic tone map, sRGB encoding, and the
      * before/after display mode (normal / animal / split).
+     *
+     * `uWarp` is the FOV-geometry radial warp (Fov.warpCoefficients): it deforms ONLY the
+     * processed/animal image — the raw reference side stays on the standard lens, so Split
+     * mode contrasts true geometry (warp) against the human view, not just color.
      */
     val FRAG_FINAL = """
         #version 300 es
@@ -77,6 +81,7 @@ object Shaders2 {
         uniform sampler2D uRaw;
         uniform int uMode;      // 0 normal, 1 animal, 2 split
         uniform int uThermal;   // 1 = apply thermal simulation
+        uniform vec2 uWarp;     // (kx, ky): >0 panoramic prey wrap, <0 foveal tunnel, 0 = none
         out vec4 outColor;
         vec3 thermalPalette(float x) {
             if (x < 0.25) { float s = x / 0.25; return vec3(0.0, 0.0, 0.5 * s); }
@@ -89,8 +94,15 @@ object Shaders2 {
             return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055,
                        step(vec3(0.0031308), c));
         }
+        // Radial remap: src = 0.5 + c * (1 + k * (0.25 - c*c)). Monotonic and in-bounds
+        // for k in (-4, 2) — Fov.warpCoefficients stays inside that range.
+        vec2 warpedUv(vec2 uv) {
+            vec2 c = uv - 0.5;
+            vec2 w = 0.5 + c * (1.0 + uWarp * (0.25 - c * c));
+            return clamp(w, vec2(0.001), vec2(0.999));
+        }
         void main() {
-            vec3 proc = texture(uProc, vUv).rgb;
+            vec3 proc = texture(uProc, warpedUv(vUv)).rgb;
             vec3 raw = texture(uRaw, vUv).rgb;
             if (uThermal == 1) {
                 float luma = dot(proc, vec3(0.2126, 0.7152, 0.0722));

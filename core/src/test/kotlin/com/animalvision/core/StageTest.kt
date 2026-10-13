@@ -15,6 +15,36 @@ import org.junit.Test
 class StageTest {
 
     @Test
+    fun `fov warp separates panoramic prey from foveal predator and leaves human flat`() {
+        val horse = Fov.warpCoefficients(getProfile("horse")!!)
+        val dog = Fov.warpCoefficients(getProfile("dog")!!)
+        val human = Fov.warpCoefficients(getProfile("human")!!)
+        val eagle = Fov.warpCoefficients(getProfile("eagle")!!)
+
+        // Human is the standard-lens baseline: no warp at all.
+        assertThat(human[0]).isEqualTo(0f)
+        assertThat(human[1]).isEqualTo(0f)
+
+        // Wide-field prey get a panoramic (positive) horizontal warp, stronger for wider fields.
+        assertThat(horse[0]).isGreaterThan(0f)
+        assertThat(dog[0]).isGreaterThan(0f)
+        assertThat(horse[0]).isGreaterThan(dog[0]) // 350° > 240°
+        // Panoramic warp is horizontal-dominant (wide lateral fields).
+        assertThat(horse[1]).isGreaterThan(0f)
+        assertThat(horse[1]).isLessThan(horse[0])
+
+        // Foveal predator (eagle) tunnels instead: negative coefficients.
+        assertThat(eagle[0]).isLessThan(0f)
+        assertThat(eagle[1]).isLessThan(0f)
+
+        // All coefficients stay inside the shader's monotonic bounds window (-4, 2).
+        for (k in horse + dog + eagle) {
+            assertThat(k).isGreaterThan(-4f)
+            assertThat(k).isLessThan(2f)
+        }
+    }
+
+    @Test
     fun `blur sigma scales inversely with acuity cutoff`() {
         val bee = Acuity.blurSigmaPixels(0.5)
         val dog = Acuity.blurSigmaPixels(8.0)

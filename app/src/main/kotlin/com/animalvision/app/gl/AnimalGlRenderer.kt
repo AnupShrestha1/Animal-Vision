@@ -412,6 +412,14 @@ class AnimalGlRenderer(
         GLES30.glUniform1i(GLES30.glGetUniformLocation(finalProg, "uMode"), mode)
         val thermal = Pipeline.isActive(profile, StageId.SPECIAL, tier) && profile.specialVision.infrared != null
         GLES30.glUniform1i(GLES30.glGetUniformLocation(finalProg, "uThermal"), if (thermal) 1 else 0)
+        // FOV geometry warp: panoramic wrap for wide-field prey, foveal tunnel for raptors.
+        // Honors StageId.FOV tier gating (PERFORMANCE tier drops the stage -> no warp).
+        val warp = if (Pipeline.isActive(profile, StageId.FOV, tier)) {
+            Fov.warpCoefficients(profile)
+        } else {
+            floatArrayOf(0f, 0f)
+        }
+        GLES30.glUniform2fv(GLES30.glGetUniformLocation(finalProg, "uWarp"), 1, warp, 0)
         GlPrimitives.drawFsQuad()
 
         // video: render FBO_FINAL into the MediaCodec input surface

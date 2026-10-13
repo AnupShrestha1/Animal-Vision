@@ -10,7 +10,10 @@ import com.animalvision.core.model.AnimalVisionProfile
  *  - a central binocular cone is kept at full acuity/color;
  *  - peripheral (monocular) regions roll off toward the animal's peripheral acuity;
  *  - horse blind spots (below muzzle, and the area directly behind the head) are masked;
- *  - species with a high-acuity foveal zone (eagle) receive a bounded central boost mask.
+ *  - species with a high-acuity foveal zone (eagle) receive a bounded central boost mask;
+ *  - the final composite applies a radial WARP ([warpCoefficients]) so wide-field prey
+ *    species read as panoramic wrap-around vision and narrow-foveal predators (eagle)
+ *    read as a targeting tunnel — geometry, not just color.
  */
 object Fov {
 
@@ -51,7 +54,8 @@ object Fov {
         return out
     }
 
-    /** 0..1 per-pixel boost mask for species with a high-acuity central region (eagle fovea). */
+    /**
+     * 0..1 per-pixel boost mask for species with a high-acuity central region (eagle fovea). */
     fun sharpBoostMask(profile: AnimalVisionProfile, width: Int, height: Int, sigmaFrac: Double = 0.22): FloatArray {
         val amp = (profile.acuity.centralScalar - 1.0).coerceAtLeast(0.0)
         val out = FloatArray(width * height)
@@ -68,5 +72,40 @@ object Fov {
             }
         }
         return out
+    }
+
+    /**
+     * Per-axis radial warp coefficients [kx, ky] consumed by the final composite shader:
+     *
+     * ```
+     * src = 0.5 + c * (1 + k * (0.25 - c*c))    where c = uv - 0.5
+     * ```
+     *
+     * - **k > 0 (prey / wide field):** mid-frame pixels sample farther from center, so the
+     *   scene is compressed inward — a wide-angle, panoramic wrap-around feel. Scaled by
+     *   total horizontal field (65° phone lens → 350° horse) and horizontal-dominant,
+     *   because prey fields are wide laterally.
+     * - **k < 0 (foveal predator, eagle):** the center is magnified toward the edges — a
+     *   tunnel/scope feel that pairs with the foveal boost mask.
+     * - **k = 0 (human):** the human profile is the baseline reference (standard lens) and
+     *   never warps.
+     *
+     * The remap is monotonic and bounds-safe for k in (-4, 2); coefficients stay inside
+     * (-2.2, 1.6] with margin. Gated on `StageId.FOV` being active by the caller.
+     */
+    fun warpCoefficients(profile: AnimalVisionProfile): FloatArray {
+        // Human is the "standard lens" baseline — no geometry warp.
+        if (profile.id == "human") return floatArrayOf(0f, 0f)
+
+        val total = profile.fieldOfView.totalHorizontalDeg
+        // 0 at the phone lens width (65°), 1 at the widest species field (horse 350°).
+        val wide = ((total - VIEW_FOV_DEGREES) / (350.0 - VIEW_FOV_DEGREES)).coerceIn(0.0, 1.0)
+        // Foveal predators (eagle centralScalar 1.6) trade panorama for a targeting tunnel.
+        val foveal = (profile.acuity.centralScalar - 1.0).coerceIn(0.0, 1.0)
+
+        val kx = 1.6 * wide * (1.0 - foveal) - 2.0 * foveal
+        // Panoramic fields are horizontal-heavy; the foveal tunnel stays rounder.
+        val ky = if (kx >= 0.0) kx * 0.45 else kx * 0.8
+        return floatArrayOf(kx.toFloat(), ky.toFloat())
     }
 }
