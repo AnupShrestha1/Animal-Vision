@@ -2,6 +2,7 @@ package com.animalvision.app
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.SurfaceTexture
 import android.opengl.GLSurfaceView
 import android.os.Bundle
@@ -143,6 +144,26 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         glView.onPause()
+    }
+
+    /**
+     * The manifest handles orientation|screenSize|screenLayout|smallestScreenSize
+     * itself, so the activity is NOT recreated on rotate: the GL surface, camera
+     * session, and Compose state all survive. This callback is our one chance to
+     * re-aim the CameraX preview at the new display rotation so the live image
+     * stays upright in landscape (the renderer re-derives its cover-crop from the
+     * updated SurfaceTexture transform, and onSurfaceChanged reallocates the
+     * pipeline for the new viewport).
+     */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        @Suppress("DEPRECATION")
+        val rotation = windowManager.defaultDisplay.rotation
+        cameraController.setTargetRotation(rotation)
+        android.util.Log.i(
+            "AnimalVision",
+            "AVDBG rotation=$rotation landscape=${newConfig.screenWidthDp > newConfig.screenHeightDp}",
+        )
     }
 
     override fun onDestroy() {

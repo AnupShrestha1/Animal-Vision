@@ -64,6 +64,16 @@ class CameraController(
         return true
     }
 
+    /**
+     * Keeps the preview upright as the activity rotates between portrait and
+     * landscape (manifest is fullSensor). CameraX re-bakes the transform matrix
+     * that the renderer reads via SurfaceTexture.getTransformMatrix(), so the
+     * cover-crop measurement follows automatically.
+     */
+    fun setTargetRotation(rotation: Int) {
+        preview?.setTargetRotation(rotation)
+    }
+
     private fun bindUseCases() {
         val p = provider ?: return
         val st = surfaceTexture ?: return

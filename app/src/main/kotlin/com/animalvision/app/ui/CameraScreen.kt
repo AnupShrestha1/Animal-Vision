@@ -29,6 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -65,6 +66,12 @@ fun CameraScreen(
         showModeHint = false
     }
 
+    // Landscape (sensor-driven, see manifest fullSensor) trims the deck so the
+    // wide horizontal field — the blind spots landscape exists to show — stays
+    // unobstructed; portrait keeps the full educational layout.
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
+
     Box(modifier = modifier.fillMaxSize()) {
         // --- press-and-hold viewfinder gesture (spec §20) ---
         Box(
@@ -89,7 +96,7 @@ fun CameraScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = 96.dp),
+                    .padding(top = if (isLandscape) 56.dp else 96.dp),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -168,7 +175,7 @@ fun CameraScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .height(400.dp)
+                .height(if (isLandscape) 240.dp else 400.dp)
                 .background(
                     Brush.verticalGradient(
                         0f to Color.Transparent,
@@ -186,7 +193,7 @@ fun CameraScreen(
                 .navigationBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (educationalMode) {
+            if (educationalMode && !isLandscape) {
                 EducationalOverlay(
                     profile = profile,
                     onOpenInfo = onOpenInfo,
@@ -242,7 +249,7 @@ fun CameraScreen(
 
             // Reserved space for the animal selector strip (rendered by the activity
             // above this screen), so the two never collide.
-            Spacer(Modifier.height(88.dp))
+            Spacer(Modifier.height(if (isLandscape) 76.dp else 88.dp))
         }
     }
 }
