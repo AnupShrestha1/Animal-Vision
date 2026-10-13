@@ -16,13 +16,29 @@ import com.animalvision.core.model.AnimalVisionProfile
  */
 class ColorTransform(val profile: AnimalVisionProfile) {
 
-    enum class Kind { HUMAN, MAMMAL_DICHROMAT, HYMENOPTERAN_TRICHROMAT, BIRD_TETRACHROMAT }
+    enum class Kind { HUMAN, MAMMAL_DICHROMAT, HYMENOPTERAN_TRICHROMAT, BIRD_TETRACHROMAT, TRICHROMAT, MONOCHROMAT }
 
-    val kind: Kind = when (profile.id) {
-        "human" -> Kind.HUMAN
-        "bee" -> Kind.HYMENOPTERAN_TRICHROMAT
-        "eagle" -> Kind.BIRD_TETRACHROMAT
-        else -> Kind.MAMMAL_DICHROMAT
+    /**
+     * Kind selection is structural, not a hard-coded id list, so new profiles plug in:
+     *  - explicit overrides keep the original seven profiles byte-identical;
+     *  - 1 class  -> monochromat (octopus, dolphin: luminance only, no hue claim);
+     *  - 2 classes -> dichromat projection (dog, cat, horse, snake);
+     *  - 3 classes -> the UV-proxy false-color mapping when a UV channel exists
+     *    (bee, fly), otherwise a plain short/middle/long projection;
+     *  - 4 classes -> bird tetrachromat mapping (eagle, pigeon, chicken, butterfly).
+     */
+    val kind: Kind = when {
+        profile.id == "human" -> Kind.HUMAN
+        profile.id == "bee" -> Kind.HYMENOPTERAN_TRICHROMAT
+        profile.colorVision.photoreceptorCount <= 1 -> Kind.MONOCHROMAT
+        profile.colorVision.photoreceptorCount == 2 -> Kind.MAMMAL_DICHROMAT
+        profile.colorVision.photoreceptorCount == 3 ->
+            if (profile.colorVision.photoreceptorTypes.any { it.contains("UV", ignoreCase = true) }) {
+                Kind.HYMENOPTERAN_TRICHROMAT
+            } else {
+                Kind.TRICHROMAT
+            }
+        else -> Kind.BIRD_TETRACHROMAT
     }
 
     private val nW = Spectrum.LAMBDA.size
@@ -86,5 +102,7 @@ class ColorTransform(val profile: AnimalVisionProfile) {
         Kind.MAMMAL_DICHROMAT -> DisplayMappings.dichromat(normalizedCatches(rgb))
         Kind.HYMENOPTERAN_TRICHROMAT -> DisplayMappings.bee(normalizedCatches(rgb), rgb[2])
         Kind.BIRD_TETRACHROMAT -> DisplayMappings.bird(normalizedCatches(rgb))
+        Kind.TRICHROMAT -> DisplayMappings.trichromat(normalizedCatches(rgb))
+        Kind.MONOCHROMAT -> DisplayMappings.monochromat(normalizedCatches(rgb))
     }
 }

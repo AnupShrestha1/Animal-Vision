@@ -31,9 +31,28 @@ class ColorTransformTest {
     @Test
     fun `white maps to white for every species (von-Kries neutral point preserved)`() {
         val white = doubleArrayOf(1.0, 1.0, 1.0)
-        for (id in listOf("human", "dog", "cat", "horse", "eagle", "bee", "snake")) {
+        for (id in com.animalvision.core.profiles.profileRegistry.map { it.id }) {
             val out = transform(id).applyLinear(white)
             for (c in out) assertThat(c).isWithin(1e-3).of(1.0)
+        }
+    }
+
+    @Test
+    fun `monochromats render achromatic gray but keep brightness differences`() {
+        // Octopus and dolphin have a single pigment class: hue is unavailable by
+        // construction, so every output must be neutral (R=G=B) — but the pigment's
+        // spectral sensitivity must still make colors differ in BRIGHTNESS.
+        for (id in listOf("octopus", "dolphin")) {
+            val t = transform(id)
+            val red = t.applyLinear(doubleArrayOf(1.0, 0.0, 0.0))
+            val green = t.applyLinear(doubleArrayOf(0.0, 1.0, 0.0))
+            assertWithMessage("$id red output achromatic")
+                .that(Math.abs(red[0] - red[1]) + Math.abs(red[1] - red[2])).isAtMost(1e-9)
+            assertWithMessage("$id green output achromatic")
+                .that(Math.abs(green[0] - green[1]) + Math.abs(green[1] - green[2])).isAtMost(1e-9)
+            // Both pigments peak in the middle of the spectrum -> green is brighter than deep red.
+            assertWithMessage("$id green brighter than red")
+                .that(green.average()).isGreaterThan(red.average())
         }
     }
 

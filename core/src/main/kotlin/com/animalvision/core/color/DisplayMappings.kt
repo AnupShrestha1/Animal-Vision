@@ -50,7 +50,33 @@ object DisplayMappings {
     }
 
     /**
-     * Bird tetrachromat (eagle): VS / S / M / L projection with the deep-UV channel suppressed,
+     * Generic trichromat projection (no UV false-color channel): receptors ordered
+     * short→long wavelength map onto the blue/green/red display channels directly.
+     * Not used by any current profile (bee/fly use the UV-proxy mapping; birds and
+     * butterflies use [bird]), but kept so a future3-class non-UV profile has an
+     * honest default instead of falling into the dichromat path.
+     */
+    fun trichromat(c: DoubleArray): DoubleArray {
+        val b = c[0]
+        val g = if (c.size > 1) c[1] else c[0]
+        val r = if (c.size > 2) c[2] else c[0]
+        return doubleArrayOf(r.coerceIn(0.0, 1.0), g.coerceIn(0.0, 1.0), b.coerceIn(0.0, 1.0))
+    }
+
+    /**
+     * True monochromats (octopus: one ~490 nm pigment class; dolphin: single LWS cone
+     * class after SWS1 pseudogenization). A single pigment carries no hue dimension —
+     * the normalized catch maps straight to luminance as achromatic grayscale. This is
+     * the honest projection: wavelength ratios are literally unavailable to the eye,
+     * so any color left on screen would be a false claim.
+     */
+    fun monochromat(c: DoubleArray): DoubleArray {
+        val v = c[0].coerceIn(0.0, 1.0)
+        return doubleArrayOf(v, v, v)
+    }
+
+    /**
+     * Bird tetrachromat (eagle, pigeon, chicken): VS / S / M / L projection with the deep-UV channel suppressed,
      * consistent with raptor ocular-media transmission measurements (Lind et al. 2013).
      * The short-wave planes contribute a violet bias; M->green, L->red.
      */

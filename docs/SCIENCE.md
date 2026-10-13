@@ -239,6 +239,171 @@ Not all snakes sense IR. Phone RGB ≠ thermal camera. Subjective experience unk
 
 ---
 
+## 8. Pigeon — `Columba livia`
+
+### Color — tetrachromat with a UV edge
+| Fact | Source | Conf. | Type |
+|---|---|---|---|
+| Four cone classes: VS≈393 nm, S≈448 nm, M≈503 nm, L≈559 nm (cloned & expressed pigments) | Kawamura, Blow & Yokoyama (1999), *Genetics* | █████ | M |
+| SWS1 (393 nm) mediates the documented 320–380 nm UV response | Kawamura et al. (1999); Wright (1972) | ████░ | M |
+| Rod RH1 ≈502 nm | Kawamura et al. (1999) | █████ | M |
+
+**Transformation (A):** bird projection (VS/S/M/L → display); the short-wave end is rendered as a labeled blue-channel proxy — a phone never measures UV.
+
+### Acuity / motion
+| Fact | Source | Conf. | Type |
+|---|---|---|---|
+| Grating bar-width thresholds 1.16–4.0 arcmin across six pigeons (humans 0.79–0.82′ in the same apparatus) → ≈7.5–26 c/deg span; 7.5 c/deg modeled (conservative end) | Blough (1971) | ███░░ | M/I |
+| Flicker-fusion figure not adopted (strongly light-level dependent in the literature) | — | ██░░░ | I |
+
+### FOV
+| Fact | Source | Conf. | Type |
+|---|---|---|---|
+| ≈340° total, ≈60° binocular — deep-lateral eye geometry | Land & Nilsson (2012) convention | ██░░░ | I/A |
+
+### Limitations
+Bar-width→c/deg conversion spans a wide range; the conservative end is shown. FOV is eye-placement geometry, not a direct measurement. UV is proxied, never measured. Subjective experience unknowable.
+---
+
+## 9. Chicken — `Gallus gallus domesticus`
+
+### Color — tetrachromat behind oil droplets
+| Fact | Source | Conf. | Type |
+|---|---|---|---|
+| Four cone pigments ≈415/460/505/562 nm (multiple extraction & ERG studies) | Fager & Fager (1981); Yen & Fager (1984); Okano et al. (1989); Govardovskii & Zueva (1977); compiled by Bowmaker, Wilkie & Hunt (1999) | █████ | M |
+| Colored oil droplets act as long-pass filters narrowing each cone — the A1 template models pigments only | Bowmaker et al. (1999) | ████░ | M/A |
+
+### Acuity / FOV
+| Fact | Source | Conf. | Type |
+|---|---|---|---|
+| Hen grating acuity 4–6 c/deg → 5.0 c/deg modeled | Demello, Foster & Reese (1992) | ████░ | M |
+| ≈300° total, ≈40° binocular — lateral-eye geometry | Land & Nilsson (2012) convention | ██░░░ | I/A |
+
+### Limitations
+Droplet filtering is disclosed, not simulated. FOV is eye-placement geometry. Subjective experience unknowable.
+---
+
+## 10. Butterfly — `Papilio xuthus`
+
+### Color — first proven invertebrate tetrachromat
+| Fact | Source | Conf. | Type |
+|---|---|---|---|
+| Eight receptor varieties in six classes (UV, violet, blue ×2, green ×2, red, broad-band) | Koshitaka et al. (2008); Arikawa (2017) | █████ | M |
+| Tetrachromatic use of UV/blue/green/red demonstrated behaviorally; wavelength discrimination minima of 1–2 nm rival humans | Koshitaka et al. (2008) | █████ | M |
+| Green & red visual-pigment λmax ≈515/575 nm (effective sensitivities 520/600 nm after the red/yellow filtering pigments) | Arikawa, Scholten, Kinoshita & Stavenga (1999) | █████ | M |
+| UV ≈340 and blue ≈460 nm: species-standard published receptor spectra | Arikawa-laboratory literature | ████░ | I |
+| Photoreceptors polarization-sensitive | Chen, Belušič & Arikawa (2020) | █████ | M |
+
+**Transformation (A):** UV → labeled blue-channel proxy (bee convention); polarization overlay is a simulation. Violet / wide-band-blue / double-peaked-green classes are omitted — only the four behaviorally demonstrated channels are modeled.
+
+### Acuity / FOV
+| Fact | Source | Conf. | Type |
+|---|---|---|---|
+| Compound-eye detail coarse (≈1 c/deg modeled); regional variation across the eye | eye-geometry convention | ██░░░ | A |
+| ≈250° coverage estimate (spherical convention, as with the honeybee) | convention | ██░░░ | A |
+
+### Limitations
+UV/blue peaks are literature-standard (green/red measured directly); UV on a phone is a proxy. Acuity and FOV approximate. Subjective experience unknowable.
+---
+
+## 11. Fruit fly — `Drosophila melanogaster`
+
+### Color — UV/blue/green trichromat
+| Fact | Source | Conf. | Type |
+|---|---|---|---|
+| In-vivo ERG peak estimates: UV (Rh3) ≈345 nm, blue (Rh5) ≈440 nm, green (Rh1) ≈485 nm; Rh6 ≈540 nm in vivo (insect screening pigments shift apparent peaks vs molecular values) | Sharkey et al. (2020), *Sci. Rep.* | █████ | M |
+| UV channel rendered as the documented blue-channel proxy (phones have no UV sensor) | app convention | ███░░ | A |
+
+### Motion — the signature
+| Fact | Source | Conf. | Type |
+|---|---|---|---|
+| Dark-adapted flicker fusion 60–100 Hz (D. hydei); 40–70% higher after light adaptation; profile displays 100 Hz as a conservative photopic figure | Miall (1978) | ████░ | M |
+| Flies are "fast-eyed" (biphasic ERG) vs slow-eyed locusts/cockroaches | Miall (1978) | ████░ | M |
+
+### Acuity / FOV
+| Fact | Source | Conf. | Type |
+|---|---|---|---|
+| Compound-eye sampling modeled ≈0.4 c/deg (not a behavioral measurement of D. melanogaster) | eye-geometry convention | ██░░░ | A |
+| ≈300° coverage estimate (spherical convention) | convention | ██░░░ | A |
+
+### Limitations
+Flicker figure is a conservative point within a measured range. Acuity is a geometric model. UV proxied. Subjective experience unknowable.
+---
+
+## 12. Octopus — `Octopus vulgaris`
+
+### Color — a TRUE monochromat
+| Fact | Source | Conf. | Type |
+|---|---|---|---|
+| Eight coastal coleoid cephalopods monochromatic, λmax 484–505 nm; profile models the 495 nm midpoint (MODELED) | Chung & Marshall (2016), *Proc. R. Soc. B* | ████░ | M/A |
+| Behavioral color blindness: no hue discrimination by an octopus | Messenger (1977), *Nature* | █████ | M |
+| Proposed chromatic-aberration + pupil-shape mechanism could in principle yield color cues without color vision | Stubbs & Oakley (2016), *PNAS* | ███░░ | I |
+
+**Transformation (A):** single normalized catch → luminance; pure grayscale on screen. Any hue would be a false claim — wavelength ratios are literally unavailable to the eye.
+
+### Polarization
+| Fact | Source | Conf. | Type |
+|---|---|---|---|
+| Cephalopods sense polarized reflections; cuttlefish polarization vision is high-resolution | Chiou et al. (2007); Temple et al. (2012) | █████ | M |
+| App overlay is a SIMULATION — an RGB phone sensor cannot measure polarization | hardware fact | █████ | M |
+
+### Acuity / FOV / low light
+| Fact | Source | Conf. | Type |
+|---|---|---|---|
+| ≈4 c/deg modeling choice (cephalopod resolution estimates are method-dependent and sparse) | modeling choice | ██░░░ | A |
+| ≈270° lateral-eye geometry | convention | ██░░░ | I/A |
+| Aquatic attenuation (depth, turbidity) NOT modeled — low-light stage disabled rather than guessed | — | ███░░ | A |
+
+### Limitations
+Single λmax is a midpoint model, not the species' exact measured peak. Acuity flagged uncertain. Subjective experience unknowable.
+---
+
+## 13. Mantis shrimp — `Odontodactylus scyllarus`
+
+### Color — 16 classes (4 modeled here)
+| Fact | Source | Conf. | Type |
+|---|---|---|---|
+| 16 functional receptor classes: UV, colour, spatial and polarization subsystems | Cronin, Bok, Marshall & Caldwell (2014) | █████ | M |
+| Colour is channel-**labelled**, not opponent-compared — a different form of colour vision | Thoen, How, Chiou & Marshall (2014), *Science* | █████ | M |
+| App models 4 representative peaks (340/450/500/560 nm) spanning UV→red — MODELED, not the literal class measurements | coverage choice | ███░░ | A |
+
+### Polarization
+| Fact | Source | Conf. | Type |
+|---|---|---|---|
+| Linear AND circular polarization detection (birefringent receptor filters); midband rows specialized for it | Marshall (1988); Marshall, Land, King & Cronin (1991); Cronin et al. (2014) | █████ | M |
+| App overlay simulates LINEAR polarization only — circular cannot be represented by a phone | hardware fact | █████ | M |
+
+### Acuity / FOV
+| Fact | Source | Conf. | Type |
+|---|---|---|---|
+| ≈2 c/deg modeled from mid-band angular sampling (behavioral acuity not established) | modeling choice | ██░░░ | A |
+| ≈300° stalked-eye coverage estimate (spherical convention) | convention | ██░░░ | A |
+
+### Limitations
+4-of-16 channel model with MODELED peaks. A1 template omits their intrarhabdomal filtering pigments. Subjective experience unknowable.
+---
+
+## 14. Dolphin — `Tursiops truncatus`
+
+### Color — rod-monochromat lineage with a broken blue gene
+| Fact | Source | Conf. | Type |
+|---|---|---|---|
+| Expressed pigments: rod rhodopsin λmax 488 nm; a single LWS cone pigment λmax 524 nm (both blue-shifted vs terrestrial mammals) | Fasick, Cronin, Hunt & Robinson (1998) | █████ | M |
+| SWS opsin carries inactivating deletions (frame-shift) and is not expressed — the mammalian blue–yellow axis is genetically gone | Fasick et al. (1998); Meredith et al. (2013) | █████ | M |
+
+**Transformation (A):** single catch → grayscale. The loss is a missing dimension, not a two-color "deficiency."
+
+### Acuity / FOV / low light
+| Fact | Source | Conf. | Type |
+|---|---|---|---|
+| In-air/underwater acuity ≈12.6 arcmin → ≈4.8 c/deg | Tomonaga, Uwano & Saito (2014) | ████░ | M |
+| ≈300° lateral-eye geometry; cetacean field measurements sparse | Land & Nilsson (2012) convention | ██░░░ | I/A |
+| Underwater attenuation NOT modeled — low-light stage disabled rather than guessed | — | ██░░░ | A |
+
+### Limitations
+Monochromat projection does not separately simulate rod/cone adaptation switching. FOV approximate. Subjective experience unknowable.
+---
+
 ## References (peer-reviewed / institutional)
 
 1. Stockman & Sharpe (2000) *Vision Research* 40, 1711–1737.
@@ -280,5 +445,29 @@ Not all snakes sense IR. Phone RGB ≠ thermal camera. Subjective experience unk
 37. Gracheva et al. (2010) *Nature* 464, 1006–1011.
 38. Newman & Hartline (1982) *Scientific American* 246(3), 116–127.
 39. Wikipedia vision reviews used as secondary indexes only (*Cat senses*, *Equine vision*, *Dog anatomy*, *Bird vision*, *Infrared sensing in snakes*); all values traced to the primary literature above.
+40. Kawamura, Blow & Yokoyama (1999) *Genetics* 153, 1839–1850.
+41. Blough (1971) *J. Exp. Anal. Behav.* 15, 57.
+42. Wright (1972) *Vision Research* 12, 1447–1464.
+43. Bowmaker, Wilkie & Hunt (1999) *Proc. 22 Int. Ornithol. Congr.* 2729–2742.
+44. Fager & Fager (1981); Yen & Fager (1984); Okano et al. (1989); Govardovskii & Zueva (1977) — chicken visual pigments, as compiled in ref. 43.
+45. Demello, Foster & Reese (1992) — hen grating acuity, 4–6 cycles/degree.
+46. Koshitaka, Kinoshita, Vorobyev & Arikawa (2008) *Proc. R. Soc. B* 275, 947–954.
+47. Arikawa (2017) *J. Physiol.* 595, 5457–5464.
+48. Arikawa, Scholten, Kinoshita & Stavenga (1999) *Zool. Sci.* 16, 17–26.
+49. Chen, Belušič & Arikawa (2020) *J. Comp. Physiol. A* 206, 199–216.
+50. Sharkey, Blanco, Leibowitz, Pinto-Benito & Wardill (2020) *Scientific Reports* 10, 18242.
+51. Miall (1978) *Physiological Entomology* — flicker fusion frequencies of six laboratory insects.
+52. Chung & Marshall (2016) *Proc. R. Soc. B* 283, 20161346.
+53. Messenger (1977) *Nature* 267, 804–805.
+54. Stubbs & Oakley (2016) *PNAS* 113, 8206–8211.
+55. Chiou, Mäthger, Hanlon & Cronin (2007) *J. Exp. Biol.* 210, 3624–3635.
+56. Temple et al. (2012) *Curr. Biol.* 22, R121–R122.
+57. Cronin, Bok, Marshall & Caldwell (2014) *Phil. Trans. R. Soc. B* 369, 20130032.
+58. Thoen, How, Chiou & Marshall (2014) *Science* 343, 411–413.
+59. Marshall (1988) *Nature* 333, 557–560.
+60. Marshall, Land, King & Cronin (1991) *Phil. Trans. R. Soc. B* 334, 33–56.
+61. Fasick, Cronin, Hunt & Robinson (1998) — the visual pigments of the bottlenose dolphin (*Tursiops truncatus*).
+62. Meredith, Gatesy, Emerling, York & Springer (2013) *PLoS Genetics* 9, e1003432.
+63. Tomonaga, Uwano & Saito (2014) *Scientific Reports* 4, 3717.
 
 > **Versioning:** profiles carry `profileVersion` + `researchUpdated` so they can be revised independently of engine code as literature evolves (spec §42).

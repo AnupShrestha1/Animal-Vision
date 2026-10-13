@@ -103,5 +103,12 @@ fun animalGlyph(id: String): String = when (id) {
     "eagle" -> "✦"
     "bee" -> "✤"
     "snake" -> "∿"
+    "pigeon" -> "◍"
+    "chicken" -> "❋"
+    "butterfly" -> "✿"
+    "fly" -> "✛"
+    "octopus" -> "❂"
+    "mantisshrimp" -> "✹"
+    "dolphin" -> "◒"
     else -> "○"
 }

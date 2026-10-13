@@ -3,6 +3,7 @@ package com.animalvision.core
 import com.animalvision.core.model.ProfileValidator
 import com.animalvision.core.profiles.profileRegistry
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import org.junit.Test
 
 /**
@@ -13,10 +14,33 @@ import org.junit.Test
 class ProfilesTest {
 
     @Test
-    fun `registry contains exactly the eight supported profiles in order`() {
+    fun `registry contains exactly the fourteen supported profiles in order`() {
         assertThat(profileRegistry.map { it.id }).containsExactly(
             "human", "dog", "cat", "horse", "eagle", "bee", "snake",
+            "pigeon", "chicken", "butterfly", "fly", "octopus", "mantisshrimp", "dolphin",
         ).inOrder()
+    }
+
+    @Test
+    fun `true monochromat profiles declare a single photoreceptor class`() {
+        for (id in listOf("octopus", "dolphin")) {
+            val profile = com.animalvision.core.profiles.requireProfile(id)
+            assertThat(profile.colorVision.photoreceptorCount).isEqualTo(1)
+            assertThat(profile.colorVision.sensitivities).hasSize(1)
+            assertThat(profile.colorVision.discriminationAxes).containsExactly("luminance")
+        }
+    }
+
+    @Test
+    fun `uv-simulating profiles carry a disclosure label`() {
+        for (profile in profileRegistry) {
+            profile.specialVision.ultraviolet?.let { uv ->
+                if (uv.isSimulation) {
+                    assertWithMessage("${profile.id} UV simulation label")
+                        .that(uv.falseColorLabel).isNotEmpty()
+                }
+            }
+        }
     }
 
     @Test

@@ -131,11 +131,12 @@ fun SettingsScreen(
 
             SectionTitle("About")
             Text(
-                text = "Animal Vision simulates how seven animals see — human, dog, cat, " +
-                    "horse, eagle, bee, and snake — from peer-reviewed vision science. " +
+                text = "Animal Vision simulates how fourteen animals see — human, dog, cat, " +
+                    "horse, eagle, bee, snake, pigeon, chicken, butterfly, fruit fly, " +
+                    "octopus, mantis shrimp, and dolphin — from peer-reviewed vision science. " +
                     "Color, acuity, and field-of-view models are labeled with confidence " +
-                    "levels; ultraviolet and thermal modes are clearly marked simulations. " +
-                    "Subjective experience is unobservable: this is a scientific " +
+                    "levels; ultraviolet, thermal, and polarization modes are clearly marked " +
+                    "simulations. Subjective experience is unobservable: this is a scientific " +
                     "visualization, not a claim about what an animal 'feels'.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = AvTextPrimary,

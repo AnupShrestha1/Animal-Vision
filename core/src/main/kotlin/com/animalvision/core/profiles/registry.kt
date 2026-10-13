@@ -11,6 +11,13 @@ val profileRegistry: List<AnimalVisionProfile> = listOf(
     eagleProfile,
     beeProfile,
     snakeProfile,
+    pigeonProfile,
+    chickenProfile,
+    butterflyProfile,
+    flyProfile,
+    octopusProfile,
+    mantisshrimpProfile,
+    dolphinProfile,
 )
 
 private val byId: Map<String, AnimalVisionProfile> = profileRegistry.associateBy { it.id }
