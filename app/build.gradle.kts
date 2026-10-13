@@ -14,6 +14,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -30,7 +31,9 @@ android {
         compose = true
     }
     lint {
-        abortOnError = false
+        // Errors fail the build; dependency-version notices stay informational.
+        abortOnError = true
+        disable += setOf("GradleDependency", "AndroidGradlePluginVersion")
     }
 }
 
@@ -58,4 +61,6 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.truth)
     androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.truth)
 }
