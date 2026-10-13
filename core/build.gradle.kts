@@ -7,8 +7,12 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
+// Target Java 17 bytecode without pinning a JDK 17 toolchain, so the module builds on
+// whatever JDK runs Gradle (Android Studio's bundled JBR or a standalone JDK 17+).
 kotlin {
-    jvmToolchain(17)
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
 }
 
 dependencies {
