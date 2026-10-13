@@ -74,6 +74,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 /** A press shorter than this is a tap (focus); longer is a hold (peek at human vision). */
 private const val HOLD_DELAY_MS = 200L
 
+/** Distance from the top safe edge to the split labels: clears the button row and badge row. */
+private val SplitLabelTop = 112.dp
+
 /** Width reserved on the right edge for the landscape capture column. */
 private val LandscapeControlsWidth = 104.dp
 
@@ -182,7 +185,7 @@ fun CameraScreen(
             }
         }
 
-        if (displayMode == DisplayMode.SPLIT) SplitLabels(profile, isLandscape)
+        if (displayMode == DisplayMode.SPLIT) SplitLabels(profile)
 
         // Light scrims only where chrome sits, so the scene stays visible.
         Box(
@@ -462,7 +465,7 @@ private fun TransientMessage(text: String?) {
 
 /** Names the two halves in Split mode, with a thin divider down the middle. */
 @Composable
-private fun SplitLabels(profile: AnimalVisionProfile, isLandscape: Boolean) {
+private fun SplitLabels(profile: AnimalVisionProfile) {
     Box(Modifier.fillMaxSize()) {
         // Fades out before the bottom controls so it doesn't cut through the shutter.
         Box(
@@ -482,7 +485,9 @@ private fun SplitLabels(profile: AnimalVisionProfile, isLandscape: Boolean) {
             modifier = Modifier
                 .fillMaxWidth()
                 // Halves are split at the screen centre (as the GPU does), so no side inset here.
-                .padding(top = if (isLandscape) 84.dp else 150.dp),
+                // Below the status bar + top chrome (buttons and badge row), in both orientations.
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
+                .padding(top = SplitLabelTop),
         ) {
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Badge(text = profile.shortName.uppercase(), color = MaterialTheme.colorScheme.primary)
