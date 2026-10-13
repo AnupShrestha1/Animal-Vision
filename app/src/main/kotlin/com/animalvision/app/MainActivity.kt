@@ -92,6 +92,10 @@ class MainActivity : ComponentActivity() {
             modeProvider = { appState.effectiveMode() },
             lowLightGate = { appState.lowLightEnabled },
         )
+        // Seed the current display rotation so a launch already in landscape
+        // renders upright (the camera always binds at ROTATION_0; the renderer
+        // re-frames by this value every frame).
+        renderer.setDisplayRotationDegrees(rotationDegrees())
         renderer.onSurfaceTextureReady = { st ->
             surfaceTexture = st
             maybeStartCamera()
@@ -146,24 +150,33 @@ class MainActivity : ComponentActivity() {
         glView.onPause()
     }
 
+    /** Display rotation in degrees (0/90/180/270). */
+    @Suppress("DEPRECATION")
+    private fun rotationDegrees(): Int = windowManager.defaultDisplay.rotation * 90
+
     /**
      * The manifest handles orientation|screenSize|screenLayout|smallestScreenSize
      * itself, so the activity is NOT recreated on rotate: the GL surface, camera
-     * session, and Compose state all survive. This callback is our one chance to
-     * re-aim the CameraX preview at the new display rotation so the live image
-     * stays upright in landscape (the renderer re-derives its cover-crop from the
-     * updated SurfaceTexture transform, and onSurfaceChanged reallocates the
-     * pipeline for the new viewport).
+     * session, and Compose state all survive. The camera always binds at
+     * ROTATION_0 (see CameraController), so its transform is orientation-
+     * independent; this callback hands the new rotation to the renderer, which
+     * re-frames the feed upright every frame (and re-derives its cover-crop from
+     * the corrected matrix).
      */
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        @Suppress("DEPRECATION")
-        val rotation = windowManager.defaultDisplay.rotation
-        cameraController.setTargetRotation(rotation)
-        android.util.Log.i(
-            "AnimalVision",
-            "AVDBG rotation=$rotation landscape=${newConfig.screenWidthDp > newConfig.screenHeightDp}",
-        )
+        renderer.setDisplayRotationDegrees(rotationDegrees())
+        // Some OEMs dispatch the config change a beat before the display
+        // rotation settles; re-read on the next main-loop pass so the renderer
+        // always ends up with the final value.
+        mainExecutor.execute {
+            val settled = rotationDegrees()
+            renderer.setDisplayRotationDegrees(settled)
+            android.util.Log.i(
+                "AnimalVision",
+                "AVDBG rotation=$settled landscape=${newConfig.screenWidthDp > newConfig.screenHeightDp}",
+            )
+        }
     }
 
     override fun onDestroy() {

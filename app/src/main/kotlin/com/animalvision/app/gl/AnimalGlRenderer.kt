@@ -67,6 +67,12 @@ class AnimalGlRenderer(
     private var kernelRadius = 0
     private var loggedTransform = 0
     private val lastLoggedMatrix = FloatArray(16)
+    @Volatile private var displayRotationDeg = 0
+    // Scratch matrices for the display-rotation re-frame (pre-allocated, GL thread only).
+    private val rotR = FloatArray(16)
+    private val rotT1 = FloatArray(16)
+    private val rotT2 = FloatArray(16)
+    private val rotBase = FloatArray(16)
     private val texMatrix = FloatArray(16).also {
         it[0] = 1f; it[5] = 1f; it[10] = 1f; it[15] = 1f
     }
@@ -161,6 +167,18 @@ class AnimalGlRenderer(
     fun setCameraSize(w: Int, h: Int) {
         cameraTexSize = intArrayOf(w, h)
         surfaceTexture?.setDefaultBufferSize(w, h)
+    }
+
+    /**
+     * Sets the display rotation in degrees (0/90/180/270) so the preview stays
+     * upright in landscape without touching the camera session. The camera
+     * always binds at ROTATION_0, hence the SurfaceTexture matrix carries the
+     * portrait transform; each frame we compose T(0.5)·R(−deg)·T(−0.5) in front
+     * of it — identity when upright (the proven portrait path). The corrected
+     * matrix feeds both the shader and computeCrop()'s cover-crop measurement.
+     */
+    fun setDisplayRotationDegrees(deg: Int) {
+        displayRotationDeg = ((deg % 360) + 360) % 360
     }
 
     companion object {
@@ -309,6 +327,20 @@ class AnimalGlRenderer(
         st.updateTexImage()
         st.getTransformMatrix(texMatrix)
         uploadPendingLut()
+        // Re-frame from the always-portrait camera transform to the current
+        // display rotation (identity when upright — the proven portrait path).
+        val rotDeg = displayRotationDeg
+        if (rotDeg != 0) {
+            android.opengl.Matrix.setRotateM(rotR, 0, -rotDeg.toFloat(), 0f, 0f, 1f)
+            android.opengl.Matrix.setIdentityM(rotT1, 0)
+            android.opengl.Matrix.translateM(rotT1, 0, -0.5f, -0.5f, 0f)
+            android.opengl.Matrix.multiplyMM(rotT2, 0, rotR, 0, rotT1, 0)   // R·T(−0.5)
+            android.opengl.Matrix.setIdentityM(rotR, 0)
+            android.opengl.Matrix.translateM(rotR, 0, 0.5f, 0.5f, 0f)       // T(0.5)
+            android.opengl.Matrix.multiplyMM(rotT1, 0, rotR, 0, rotT2, 0)    // T(0.5)·R·T(−0.5)
+            System.arraycopy(texMatrix, 0, rotBase, 0, 16)
+            android.opengl.Matrix.multiplyMM(texMatrix, 0, rotT1, 0, rotBase, 0)
+        }
         var matrixChanged = false
         for (k in 0 until 15) {
             if (texMatrix[k] != lastLoggedMatrix[k]) { matrixChanged = true; break }

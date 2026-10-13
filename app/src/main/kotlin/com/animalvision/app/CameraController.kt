@@ -27,7 +27,6 @@ class CameraController(
     private var surfaceTexture: SurfaceTexture? = null
     private var targetSize = Size(1280, 720)
     private var reportedActualResolution = false
-    private var targetRotation: Int? = null
 
     var onCapabilitiesResolved: ((hasUltraWide: Boolean, resolution: Size) -> Unit)? = null
     var onCameraError: ((message: String) -> Unit)? = null
@@ -65,32 +64,21 @@ class CameraController(
         return true
     }
 
-    /**
-     * Keeps the preview upright as the activity rotates between portrait and
-     * landscape (manifest is fullSensor). CameraX bakes the display rotation into
-     * the transform matrix it hands the SurfaceTexture path when a session is
-     * *configured*; nudging an already-bound session's target rotation is not
-     * applied on all devices (the Redmi test device kept the feed rotated), so
-     * rebind to force a fresh session with the new rotation. The renderer's
-     * cover-crop measurement follows the new matrix automatically.
-     */
-    fun setTargetRotation(rotation: Int) {
-        if (targetRotation == rotation) return
-        targetRotation = rotation
-        // First bind keeps CameraX's default (current display rotation), which is
-        // already correct in whichever orientation the app was launched; rebind
-        // only when an already-bound session must flip.
-        if (provider != null && surfaceTexture != null) bindUseCases()
-    }
-
     private fun bindUseCases() {
         val p = provider ?: return
         val st = surfaceTexture ?: return
         p.unbindAll()
 
-        val previewBuilder = Preview.Builder().setTargetResolution(targetSize)
-        targetRotation?.let { previewBuilder.setTargetRotation(it) }
-        val preview = previewBuilder.build()
+        // Always bind at ROTATION_0 so the transform CameraX bakes into the
+        // SurfaceTexture path is identical in every orientation (the "portrait"
+        // matrix). The renderer re-frames it by the actual display rotation
+        // (AnimalGlRenderer.setDisplayRotationDegrees) because CameraX does not
+        // reliably re-apply live target-rotation changes to this surface path
+        // (the Redmi test device kept the feed rotated either way).
+        val preview = Preview.Builder()
+            .setTargetResolution(targetSize)
+            .setTargetRotation(Surface.ROTATION_0)
+            .build()
         this.preview = preview
 
         val selector = CameraSelector.Builder()
