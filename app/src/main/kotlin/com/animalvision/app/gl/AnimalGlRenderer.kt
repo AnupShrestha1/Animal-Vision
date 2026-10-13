@@ -173,7 +173,7 @@ class AnimalGlRenderer(
      * Sets the display rotation in degrees (0/90/180/270) so the preview stays
      * upright in landscape without touching the camera session. The camera
      * always binds at ROTATION_0, hence the SurfaceTexture matrix carries the
-     * portrait transform; each frame we compose T(0.5)·R(−deg)·T(−0.5) in front
+     * portrait transform; each frame we compose T(0.5)·R(deg)·T(−0.5) in front
      * of it — identity when upright (the proven portrait path). The corrected
      * matrix feeds both the shader and computeCrop()'s cover-crop measurement.
      */
@@ -331,7 +331,9 @@ class AnimalGlRenderer(
         // display rotation (identity when upright — the proven portrait path).
         val rotDeg = displayRotationDeg
         if (rotDeg != 0) {
-            android.opengl.Matrix.setRotateM(rotR, 0, -rotDeg.toFloat(), 0f, 0f, 1f)
+            // R(deg): the CameraX matrix works in a v-flipped sampling frame,
+            // which inverts rotation direction vs. naive screen intuition.
+            android.opengl.Matrix.setRotateM(rotR, 0, rotDeg.toFloat(), 0f, 0f, 1f)
             android.opengl.Matrix.setIdentityM(rotT1, 0)
             android.opengl.Matrix.translateM(rotT1, 0, -0.5f, -0.5f, 0f)
             android.opengl.Matrix.multiplyMM(rotT2, 0, rotR, 0, rotT1, 0)   // R·T(−0.5)
