@@ -41,8 +41,10 @@
         BlurChain             pyramid Gaussian blur of arbitrary sigma
         Shaders, Shaders2     GLSL ES 3.0 passes
         VideoRecorder         encoder surface + muxer
-  ui/   CameraScreen, AnimalSelector (+ CartoonAnimals), AnimalInfoScreen,
-        SettingsScreen, Onboarding, EducationalOverlay, ConfidenceDisplay, Theme
+  ui/   CameraScreen (viewfinder chrome: animal pill, badges, deck), CaptureControls,
+        AnimalSelector (+ CartoonAnimals), SimulationNotices (one source for every
+        "simulated" label), AnimalInfoScreen, SettingsScreen, Onboarding, AppIcons,
+        ConfidenceDisplay, Theme
 ```
 
 The scientific layer never depends on the renderer: everything that decides *what* an animal

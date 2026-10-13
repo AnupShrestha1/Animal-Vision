@@ -1,33 +1,25 @@
 package com.animalvision.app
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.graphics.SurfaceTexture
+import android.media.MediaMetadataRetriever
 import android.opengl.GLSurfaceView
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,18 +27,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.animalvision.app.gl.AnimalGlRenderer
 import com.animalvision.app.ui.AnimalInfoScreen
-import com.animalvision.app.ui.AnimalSelector
 import com.animalvision.app.ui.AnimalVisionTheme
 import com.animalvision.app.ui.AvMuted
 import com.animalvision.app.ui.AvTextPrimary
@@ -245,19 +232,49 @@ class MainActivity : ComponentActivity() {
     // ---- capture plumbing ---------------------------------------------------
 
     private fun capturePhoto() {
+        appState.captureFlashTick++
+        val animalName = appState.profile.name
         renderer.requestCapture { bitmap ->
             ioExecutor.execute {
-                val uri = CaptureSaver.saveJpeg(applicationContext, bitmap, appState.profile.name)
+                val uri = CaptureSaver.saveJpeg(applicationContext, bitmap, animalName)
+                val thumb = if (uri != null) thumbnailOf(bitmap) else null
                 bitmap.recycle()
                 runOnUiThread {
-                    appState.announce(
-                        if (uri != null) "Photo saved to Pictures/AnimalVision"
-                        else "Photo could not be saved",
-                    )
+                    if (uri != null && thumb != null) {
+                        appState.lastCapture = LastCapture(uri, thumb, isVideo = false)
+                        appState.announce("Photo saved")
+                    } else {
+                        appState.announce("Photo could not be saved")
+                    }
                 }
             }
         }
         glView.requestRender()
+    }
+
+    /** Small preview for the capture thumbnail (keeps memory tiny). */
+    private fun thumbnailOf(bitmap: Bitmap): ImageBitmap {
+        val scale = 160f / maxOf(bitmap.width, bitmap.height)
+        return Bitmap.createScaledBitmap(
+            bitmap,
+            maxOf(1, (bitmap.width * scale).toInt()),
+            maxOf(1, (bitmap.height * scale).toInt()),
+            true,
+        ).asImageBitmap()
+    }
+
+    /** Opens the last photo/video in the user's gallery or player. */
+    private fun openLastCapture() {
+        val capture = appState.lastCapture ?: return
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(capture.uri, if (capture.isVideo) "video/*" else "image/*")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            appState.announce("No app found to open it - it is in your gallery")
+        }
     }
 
     private var pendingVideoFile: File? = null
@@ -284,7 +301,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         appState.isRecording = true
-        appState.announce("Recording started")
+        appState.recordingStartedAtMs = System.currentTimeMillis()
     }
 
     private fun stopRecording(publish: Boolean) {
@@ -298,15 +315,31 @@ class MainActivity : ComponentActivity() {
                 if (!publish) {
                     file?.delete()
                 } else if (file != null) {
+                    val thumb = videoThumbnail(file)
                     val uri = CaptureSaver.publishVideo(applicationContext, file, animalName)
                     runOnUiThread {
-                        appState.announce(
-                            if (uri != null) "Video saved to Movies/AnimalVision"
-                            else "Video could not be saved",
-                        )
+                        if (uri != null) {
+                            if (thumb != null) appState.lastCapture = LastCapture(uri, thumb, isVideo = true)
+                            appState.announce("Video saved")
+                        } else {
+                            appState.announce("Video could not be saved")
+                        }
                     }
                 }
             }
+        }
+    }
+
+    /** First frame of a finished recording, for the capture thumbnail. */
+    private fun videoThumbnail(file: File): ImageBitmap? {
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(file.absolutePath)
+            retriever.getFrameAtTime(0)?.let { frame -> thumbnailOf(frame).also { frame.recycle() } }
+        } catch (e: Exception) {
+            null
+        } finally {
+            retriever.release()
         }
     }
 
@@ -379,6 +412,8 @@ class MainActivity : ComponentActivity() {
 
                 CameraScreen(
                     profile = appState.profile,
+                    profiles = appState.profiles,
+                    onSelectProfile = appState::selectProfile,
                     displayMode = appState.effectiveMode(),
                     onSetMode = appState::setMode,
                     onHoldStart = { appState.setHoldToCompare(true) },
@@ -387,33 +422,29 @@ class MainActivity : ComponentActivity() {
                         renderer.viewToCameraPoint(x, y)?.let { (u, v) -> cameraController.focusAt(u, v) }
                     },
                     educationalMode = appState.educationalMode,
-                    capabilityNote = appState.capabilityNote,
                     statusMessage = appState.statusMessage,
+                    showStats = appState.showStats,
                     fps = appState.fps,
                     isRecording = appState.isRecording,
+                    recordingStartedAtMs = appState.recordingStartedAtMs,
+                    lastCapture = appState.lastCapture,
+                    captureFlashTick = appState.captureFlashTick,
                     onCapturePhoto = { withStorageAccess(::capturePhoto) },
                     onToggleRecord = ::toggleRecording,
-                    onOpenInfo = { appState.showInfo = true },
-                )
-
-                TopBar(
-                    onInfo = { appState.showInfo = true },
-                    onSettings = { appState.showSettings = true },
-                    onSwitchCamera = ::switchCamera,
-                    onToggleTorch = ::toggleTorch,
+                    onOpenLastCapture = ::openLastCapture,
                     hasFlash = appState.hasFlash,
                     torchOn = appState.torchOn,
+                    onToggleTorch = ::toggleTorch,
+                    onSwitchCamera = ::switchCamera,
+                    onOpenInfo = { appState.showInfo = true },
+                    onOpenSettings = { appState.showSettings = true },
                 )
 
-                AnimalSelector(
-                    profiles = appState.profiles,
-                    selectedId = appState.currentProfileId,
-                    onSelect = appState::selectProfile,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .navigationBarsPadding(),
-                )
+                // System back closes an open panel instead of leaving the app.
+                BackHandler(enabled = appState.showInfo || appState.showSettings) {
+                    appState.showInfo = false
+                    appState.showSettings = false
+                }
 
                 if (appState.showInfo) {
                     AnimalInfoScreen(
@@ -429,6 +460,8 @@ class MainActivity : ComponentActivity() {
                         onEducationalMode = { appState.educationalMode = it },
                         lowLightEnabled = appState.lowLightEnabled,
                         onLowLightEnabled = { appState.lowLightEnabled = it },
+                        showStats = appState.showStats,
+                        onShowStats = { appState.showStats = it },
                         onClose = { appState.showSettings = false },
                     )
                 }
@@ -436,106 +469,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @Composable
-    private fun TopBar(
-        onInfo: () -> Unit,
-        onSettings: () -> Unit,
-        onSwitchCamera: () -> Unit,
-        onToggleTorch: () -> Unit,
-        hasFlash: Boolean,
-        torchOn: Boolean,
-    ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            // Scrim keeps the controls readable over bright scenes.
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(
-                        Brush.verticalGradient(
-                            0f to Color.Black.copy(alpha = 0.55f),
-                            0.55f to Color.Black.copy(alpha = 0.18f),
-                            1f to Color.Transparent,
-                        ),
-                    ),
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "Animal Vision",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = AvTextPrimary,
-                    modifier = Modifier
-                        .semantics {
-                            contentDescription = "Animal Vision, showing ${appState.profile.name}"
-                        },
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                if (hasFlash) {
-                    GlassIconButton(
-                        glyph = "⚡",
-                        contentDesc = if (torchOn) "Turn flash off" else "Turn flash on",
-                        active = torchOn,
-                        onClick = onToggleTorch,
-                    )
-                }
-                GlassIconButton(
-                    glyph = "⇄",
-                    contentDesc = "Switch between rear and front camera",
-                    active = false,
-                    onClick = onSwitchCamera,
-                )
-                GlassIconButton(
-                    glyph = "ⓘ",
-                    contentDesc = "Open species info",
-                    active = false,
-                    onClick = onInfo,
-                )
-                GlassIconButton(
-                    glyph = "⚙",
-                    contentDesc = "Open settings",
-                    active = false,
-                    onClick = onSettings,
-                )
-            }
-        }
-    }
-
-    /** Circular translucent control used by the top bar; active state tints the glyph. */
-    @Composable
-    private fun GlassIconButton(
-        glyph: String,
-        contentDesc: String,
-        active: Boolean,
-        onClick: () -> Unit,
-    ) {
-        Box(
-            modifier = Modifier
-                .padding(start = 8.dp)
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(
-                    if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
-                    else Color.Black.copy(alpha = 0.45f),
-                )
-                .clickable(onClick = onClick)
-                .semantics {
-                    role = Role.Button
-                    contentDescription = contentDesc
-                },
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = glyph,
-                style = MaterialTheme.typography.titleMedium,
-                color = if (active) MaterialTheme.colorScheme.primary else AvTextPrimary,
-            )
-        }
-    }
 }
 
 /** Shown when camera permission is denied (spec §37: graceful, with retry). */

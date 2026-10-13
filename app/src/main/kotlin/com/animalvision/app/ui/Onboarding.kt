@@ -1,21 +1,25 @@
 package com.animalvision.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -26,50 +30,56 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
-private data class OnboardingPage(val title: String, val body: String)
+private data class OnboardingPage(
+    val title: String,
+    val body: String,
+    /** Cartoon ids shown as the page illustration. */
+    val animals: List<String>,
+    /** The page that offers the camera permission request. */
+    val asksCamera: Boolean = false,
+)
 
 private val pages = listOf(
     OnboardingPage(
-        "How to use",
-        "Point the camera at the world and pick an animal. The live view changes to that " +
-            "species' vision model — color, detail, field of view, and low light. " +
-            "Press and hold the viewfinder to peek at normal human vision at any time.",
+        "See through other eyes",
+        "Fourteen animals, from dogs and eagles to bees and mantis shrimp. Point the camera " +
+            "at the world and pick one: the live view changes to that species' color, detail, " +
+            "field of view, and low-light vision.",
+        listOf("dog", "bee", "eagle", "octopus"),
     ),
     OnboardingPage(
-        "Before / after",
-        "Switch between Normal, Animal, and Split modes. Split shows animal vision on the " +
-            "left and human vision on the right of a center divider. Hold-to-compare always " +
-            "shows the unprocessed view while pressed.",
+        "Pick, compare, capture",
+        "Swipe the animal strip to switch species. Animal, Split, and Human change what you " +
+            "compare; press and hold the view to peek at human vision, tap to focus. " +
+            "Photos and videos save to your gallery.",
+        listOf("cat", "human"),
     ),
     OnboardingPage(
         "Science, not gimmicks",
-        "Every parameter comes from published measurements, graded with confidence bars in " +
-            "the info panel. Bee ultraviolet and snake thermal are labeled simulations — " +
-            "phones cannot sense true UV or infrared, and we never pretend otherwise.",
+        "Every value comes from published measurements, with confidence ratings in each " +
+            "animal's info. What a phone cannot sense is always labeled: ultraviolet, thermal, " +
+            "polarization, and vision too fast for any screen.",
+        listOf("mantisshrimp", "snake", "butterfly"),
     ),
     OnboardingPage(
-        "Camera permission",
-        "Animal Vision needs the camera to show you the world through another animal's eyes. " +
-            "Frames are processed entirely on this device — nothing is uploaded, and no " +
-            "storage permission is required to save captures.",
-    ),
-    OnboardingPage(
-        "Capture",
-        "Take photos and record videos of the processed view; they save to your gallery " +
-            "with the animal name and timestamp. Enjoy exploring the visual worlds of " +
-            "other species!",
+        "Your camera stays private",
+        "Animal Vision needs the camera to work. Frames are processed only on this device — " +
+            "nothing is uploaded, and the microphone is never used.",
+        listOf("pigeon", "horse"),
+        asksCamera = true,
     ),
 )
 
 /**
- * First-run onboarding (spec §23): 5 pages in a pager; page 4 offers the camera
- * permission request. Skippable from any page.
+ * First-run onboarding (spec §23): illustrated pages in a pager; the last one offers the
+ * camera permission request. Skippable from any page.
  */
 @Composable
 fun OnboardingScreen(
@@ -79,6 +89,8 @@ fun OnboardingScreen(
     modifier: Modifier = Modifier,
 ) {
     val pagerState = rememberPagerState { pages.size }
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
     val scope = rememberCoroutineScope()
 
     Surface(modifier = modifier.fillMaxSize(), color = AvInk) {
@@ -110,10 +122,24 @@ fun OnboardingScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 28.dp),
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 28.dp)
+                        .widthIn(max = 560.dp),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy((-14).dp)) {
+                        page.animals.forEach { id ->
+                            CartoonAnimalFace(
+                                id = id,
+                                modifier = Modifier
+                                    .size(if (isLandscape) 56.dp else 84.dp)
+                                    .clip(CircleShape)
+                                    .border(3.dp, AvInk, CircleShape),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(if (isLandscape) 12.dp else 28.dp))
                     Text(
                         text = page.title,
                         style = MaterialTheme.typography.headlineSmall,
@@ -127,7 +153,7 @@ fun OnboardingScreen(
                         color = AvMuted,
                         textAlign = TextAlign.Center,
                     )
-                    if (index == 3) {
+                    if (page.asksCamera) {
                         Spacer(Modifier.height(24.dp))
                         if (cameraPermissionGranted) {
                             Text(
@@ -183,7 +209,7 @@ fun OnboardingScreen(
                         }
                     },
                     shape = RoundedCornerShape(24.dp),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().widthIn(max = 480.dp),
                 ) {
                     Text(
                         text = if (pagerState.currentPage == pages.lastIndex) "Start exploring" else "Next",

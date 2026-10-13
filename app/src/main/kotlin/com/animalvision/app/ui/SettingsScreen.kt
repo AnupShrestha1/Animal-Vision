@@ -12,13 +12,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +46,8 @@ fun SettingsScreen(
     onEducationalMode: (Boolean) -> Unit,
     lowLightEnabled: Boolean,
     onLowLightEnabled: (Boolean) -> Unit,
+    showStats: Boolean,
+    onShowStats: (Boolean) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -64,9 +70,7 @@ fun SettingsScreen(
                     color = AvTextPrimary,
                     modifier = Modifier.padding(top = 16.dp),
                 )
-                TextButton(onClick = onClose) {
-                    Text("Close", color = MaterialTheme.colorScheme.primary)
-                }
+                CloseButton(onClose)
             }
 
             Text(
@@ -76,7 +80,8 @@ fun SettingsScreen(
                 modifier = Modifier.padding(top = 16.dp),
             )
             Text(
-                text = "Lower tiers reduce internal resolution and stage count if the device struggles.",
+                text = "High gives the sharpest view. If frames drop, the app steps down on its own; " +
+                    "your choice here is remembered.",
                 style = MaterialTheme.typography.bodySmall,
                 color = AvMuted,
             )
@@ -109,8 +114,9 @@ fun SettingsScreen(
             }
 
             ToggleRow(
-                title = "Educational overlay",
-                subtitle = "Show species facts and simulation labels over the viewfinder.",
+                title = "Species fact",
+                subtitle = "Show a one-line fact about the animal above the controls. " +
+                    "Simulation labels always stay visible.",
                 checked = educationalMode,
                 onCheckedChange = onEducationalMode,
             )
@@ -119,6 +125,12 @@ fun SettingsScreen(
                 subtitle = "Species shadow lift and rod desaturation. Disable to save battery.",
                 checked = lowLightEnabled,
                 onCheckedChange = onLowLightEnabled,
+            )
+            ToggleRow(
+                title = "Show performance stats",
+                subtitle = "Display the frame rate in the viewfinder (for troubleshooting).",
+                checked = showStats,
+                onCheckedChange = onShowStats,
             )
 
             SectionTitle("Privacy")
@@ -142,13 +154,28 @@ fun SettingsScreen(
                 color = AvTextPrimary,
             )
             Text(
-                text = "No storage permission is required; captures use the system gallery APIs. " +
-                    "The microphone is never recorded — video capture is silent by design.",
+                text = "Captures go to Pictures/AnimalVision and Movies/AnimalVision. Android 10 and " +
+                    "newer need no storage permission; Android 8–9 ask once, at your first save. " +
+                    "The microphone is never used — video capture is silent by design.",
                 style = MaterialTheme.typography.bodySmall,
                 color = AvMuted,
                 modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
             )
         }
+    }
+}
+
+/** Round close button shared by the full-screen panels (settings, species info). */
+@Composable
+fun CloseButton(onClose: () -> Unit) {
+    IconButton(
+        onClick = onClose,
+        modifier = Modifier
+            .padding(top = 8.dp)
+            .clip(CircleShape)
+            .background(AvPanelElevated),
+    ) {
+        Icon(Icons.Filled.Close, contentDescription = "Close", tint = AvTextPrimary)
     }
 }
 

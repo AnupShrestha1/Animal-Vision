@@ -1,15 +1,21 @@
 package com.animalvision.app
 
 import android.content.SharedPreferences
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
 import com.animalvision.core.model.AnimalVisionProfile
 import com.animalvision.core.model.QualityTier
 import com.animalvision.core.profiles.getProfile
 import com.animalvision.core.profiles.profileRegistry
+
+/** A saved capture: its gallery [uri], a small [thumbnail], and whether it is a video. */
+class LastCapture(val uri: Uri, val thumbnail: ImageBitmap, val isVideo: Boolean)
 
 /** Display modes for the before/after control (spec §28). */
 object DisplayMode {
@@ -53,6 +59,22 @@ class AppState(private val prefs: SharedPreferences? = null) {
             lowLightState = value
             prefs?.edit()?.putBoolean(KEY_LOW_LIGHT, value)?.apply()
         }
+
+    private var showStatsState by mutableStateOf(prefs?.getBoolean(KEY_SHOW_STATS, false) ?: false)
+    /** Show the fps readout (a developer aid, off by default). */
+    var showStats: Boolean
+        get() = showStatsState
+        set(value) {
+            showStatsState = value
+            prefs?.edit()?.putBoolean(KEY_SHOW_STATS, value)?.apply()
+        }
+
+    /** Most recent saved photo/video, shown as a tappable thumbnail next to the shutter. */
+    var lastCapture by mutableStateOf<LastCapture?>(null)
+    /** Bumped on every shutter press; drives the capture flash. */
+    var captureFlashTick by mutableIntStateOf(0)
+    /** Wall-clock start of the current recording (for the REC timer), 0 when idle. */
+    var recordingStartedAtMs by mutableLongStateOf(0L)
 
     var motionEnabled by mutableStateOf(true)
     var showSettings by mutableStateOf(false)
@@ -119,5 +141,6 @@ class AppState(private val prefs: SharedPreferences? = null) {
         const val KEY_EDUCATIONAL = "educational_mode"
         const val KEY_LOW_LIGHT = "low_light"
         const val KEY_ONBOARDED = "onboarding_done"
+        const val KEY_SHOW_STATS = "show_stats"
     }
 }

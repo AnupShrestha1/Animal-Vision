@@ -1,6 +1,7 @@
 package com.animalvision.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,13 +11,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,8 +29,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import com.animalvision.core.model.AnimalVisionProfile
 import com.animalvision.core.model.SourceType
-import com.animalvision.core.stage.Motion
-import com.animalvision.core.stage.SpecialVision
 
 /**
  * Full-screen scientific info panel (spec §21): color/acuity/FOV/low-light facts,
@@ -52,14 +52,14 @@ fun AnimalInfoScreen(
                 .padding(horizontal = 20.dp),
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(modifier = Modifier.padding(top = 12.dp)) {
+                CartoonAnimalFace(profile.id, Modifier.size(64.dp).clip(CircleShape))
+                Column(modifier = Modifier.weight(1f).padding(start = 14.dp)) {
                     Text(
                         text = profile.name,
-                        style = MaterialTheme.typography.headlineMedium,
+                        style = MaterialTheme.typography.headlineSmall,
                         color = AvTextPrimary,
                     )
                     Text(
@@ -69,21 +69,49 @@ fun AnimalInfoScreen(
                         fontStyle = FontStyle.Italic,
                     )
                 }
-                TextButton(onClick = onClose) {
-                    Text("Close", color = MaterialTheme.colorScheme.primary)
-                }
+                CloseButton(onClose)
             }
 
             Text(
                 text = profile.description,
                 style = MaterialTheme.typography.bodyLarge,
                 color = AvTextPrimary,
-                modifier = Modifier.padding(top = 8.dp),
+                modifier = Modifier.padding(top = 14.dp),
             )
+
+            // Quick facts: the numbers people look for, before the detailed cards.
+            Row(
+                modifier = Modifier
+                    .padding(top = 14.dp)
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                val receptors = profile.colorVision.photoreceptorCount
+                FactChip("$receptors", if (receptors == 1) "color receptor type" else "color receptor types")
+                FactChip("${formatNumber(profile.acuity.cutoffCpd)} c/°", "detail limit")
+                FactChip("${profile.fieldOfView.totalHorizontalDeg.toInt()}°", "field of view")
+                profile.motion.temporalResolutionHz?.let { FactChip("${it.toInt()} Hz", "flicker fusion") }
+                FactChip("${profile.scientificData.confidence.overall.stars}/5", "overall confidence")
+            }
+
+            val notices = simulationNotices(profile)
+            if (notices.isNotEmpty()) {
+                SectionCard(title = "Simulated or not shown") {
+                    notices.forEach { notice ->
+                        Text(
+                            text = "• ${notice.detail}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = AvWarning,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
+            }
 
             SectionCard(title = "Color vision") {
                 Text(
-                    text = "${profile.colorVision.photoreceptorCount} photoreceptor classes: " +
+                    text = "${profile.colorVision.photoreceptorCount} photoreceptor " +
+                        (if (profile.colorVision.photoreceptorCount == 1) "class: " else "classes: ") +
                         profile.colorVision.photoreceptorTypes.joinToString(", ") +
                         ". Discrimination axes: " +
                         profile.colorVision.discriminationAxes.joinToString(", ") + ".",
@@ -166,24 +194,15 @@ fun AnimalInfoScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = AvTextPrimary,
                 )
-                Motion.disclosure(profile)?.let { note ->
-                    Text(
-                        text = note,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = AvWarning,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                }
             }
 
             val specialLines = buildList {
                 profile.specialVision.ultraviolet?.let { add("Ultraviolet: ${it.falseColorLabel}") }
                 profile.specialVision.infrared?.let { add("Infrared: ${it.label}") }
-                if (profile.specialVision.polarizationSimulation) add(SpecialVision.POLARIZATION_DISCLOSURE)
                 addAll(profile.specialVision.notes)
             }
             if (specialLines.isNotEmpty()) {
-                SectionCard(title = "Special channels (simulations)") {
+                SectionCard(title = "Special senses") {
                     specialLines.forEach { line ->
                         Text(
                             text = "• $line",
@@ -258,6 +277,25 @@ fun AnimalInfoScreen(
         }
     }
 }
+
+/** A big number with a small caption, for the quick-facts row. */
+@Composable
+private fun FactChip(value: String, caption: String) {
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(AvPanel)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .semantics(mergeDescendants = true) { contentDescription = "$caption: $value" },
+    ) {
+        Text(text = value, style = MaterialTheme.typography.titleMedium, color = AvTextPrimary)
+        Text(text = caption, style = MaterialTheme.typography.labelSmall, color = AvMuted)
+    }
+}
+
+/** 0.5 -> "0.5", 8.0 -> "8", 140.0 -> "140". */
+private fun formatNumber(v: Double): String =
+    if (v == Math.floor(v)) v.toLong().toString() else v.toString()
 
 @Composable
 private fun SectionCard(
