@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- An eye whose iris is split into the receptor channels the app models
+     (UV/violet, blue, green, red). Drawn inside the 66dp adaptive-icon safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- sclera -->
+    <path
+        android:fillColor="#E8EEF3"
+        android:pathData="M24,54 Q54,26 84,54 Q54,82 24,54 Z" />
+    <!-- iris quadrants: red, green, blue, violet -->
+    <path
+        android:fillColor="#E5484D"
+        android:pathData="M54,54 L54,39 A15,15 0 0,1 69,54 Z" />
+    <path
+        android:fillColor="#46A758"
+        android:pathData="M54,54 L69,54 A15,15 0 0,1 54,69 Z" />
+    <path
+        android:fillColor="#3E63DD"
+        android:pathData="M54,54 L54,69 A15,15 0 0,1 39,54 Z" />
+    <path
+        android:fillColor="#8E4EC6"
+        android:pathData="M54,54 L39,54 A15,15 0 0,1 54,39 Z" />
+    <!-- pupil + catchlight -->
+    <path
+        android:fillColor="#0B0E12"
+        android:pathData="M47,54 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M48.5,50.5 a2.2,2.2 0 1,0 4.4,0 a2.2,2.2 0 1,0 -4.4,0" />
+</vector>

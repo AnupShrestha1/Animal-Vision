@@ -4,8 +4,8 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.SurfaceTexture
-import android.os.Build
 import android.opengl.GLSurfaceView
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -17,22 +17,22 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,7 +64,11 @@ import kotlinx.coroutines.delay
  */
 class MainActivity : ComponentActivity() {
 
-    private val appState = AppState()
+    // Activity.getMainExecutor() is API 28+; minSdk is 26.
+    private val uiExecutor by lazy { ContextCompat.getMainExecutor(this) }
+
+    // Lazy: SharedPreferences needs the Context, which isn't attached during construction.
+    private val appState by lazy { AppState(getSharedPreferences("animal_vision", MODE_PRIVATE)) }
     private lateinit var glView: GLSurfaceView
     private lateinit var renderer: AnimalGlRenderer
     private lateinit var cameraController: CameraController
@@ -104,6 +108,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         cameraPermissionGranted = hasCameraPermission()
+        appState.cameraPermission = cameraPermissionGranted
 
         renderer = AnimalGlRenderer(
             profileProvider = { appState.profile },
@@ -141,7 +146,7 @@ class MainActivity : ComponentActivity() {
                     else -> QualityTier.PERFORMANCE
                 }
                 if (lower != current) {
-                    appState.setTier(lower)
+                    appState.setTier(lower, persist = false)
                     appState.announce("Reduced quality to keep the preview smooth")
                 }
             }
@@ -153,7 +158,7 @@ class MainActivity : ComponentActivity() {
             setRenderer(renderer)
         }
 
-        cameraController = CameraController(this, this, mainExecutor)
+        cameraController = CameraController(this, this, uiExecutor)
         cameraController.onCapabilitiesResolved = { _, resolution ->
             renderer.setCameraSize(resolution.width, resolution.height)
             appState.hasFlash = cameraController.hasFlash
@@ -180,6 +185,12 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         glView.onResume()
+        // Permission may have been granted (or revoked) in system settings while away.
+        val granted = hasCameraPermission()
+        if (granted != appState.cameraPermission) {
+            appState.cameraPermission = granted
+            if (granted) cameraPermissionGranted = true
+        }
     }
 
     override fun onPause() {
@@ -206,7 +217,7 @@ class MainActivity : ComponentActivity() {
         // Some OEMs dispatch the config change a beat before the display
         // rotation settles; re-read on the next main-loop pass so the renderer
         // always ends up with the final value.
-        mainExecutor.execute {
+        uiExecutor.execute {
             renderer.setDisplayRotationDegrees(rotationDegrees())
         }
     }
@@ -320,11 +331,11 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun AppRoot() {
-        var cameraPermission by remember { mutableStateOf(hasCameraPermission()) }
+        val cameraPermission = appState.cameraPermission
         val permissionLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.RequestPermission(),
         ) { granted ->
-            cameraPermission = granted
+            appState.cameraPermission = granted
             cameraPermissionGranted = granted
             if (!granted) appState.announce("Camera permission is required for the live view")
         }
@@ -450,7 +461,7 @@ class MainActivity : ComponentActivity() {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .statusBarsPadding()
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
