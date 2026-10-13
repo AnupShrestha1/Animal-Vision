@@ -27,6 +27,7 @@ class CameraController(
     private var surfaceTexture: SurfaceTexture? = null
     private var targetSize = Size(1280, 720)
     private var reportedActualResolution = false
+    private var targetRotation: Int? = null
 
     var onCapabilitiesResolved: ((hasUltraWide: Boolean, resolution: Size) -> Unit)? = null
     var onCameraError: ((message: String) -> Unit)? = null
@@ -66,12 +67,20 @@ class CameraController(
 
     /**
      * Keeps the preview upright as the activity rotates between portrait and
-     * landscape (manifest is fullSensor). CameraX re-bakes the transform matrix
-     * that the renderer reads via SurfaceTexture.getTransformMatrix(), so the
-     * cover-crop measurement follows automatically.
+     * landscape (manifest is fullSensor). CameraX bakes the display rotation into
+     * the transform matrix it hands the SurfaceTexture path when a session is
+     * *configured*; nudging an already-bound session's target rotation is not
+     * applied on all devices (the Redmi test device kept the feed rotated), so
+     * rebind to force a fresh session with the new rotation. The renderer's
+     * cover-crop measurement follows the new matrix automatically.
      */
     fun setTargetRotation(rotation: Int) {
-        preview?.setTargetRotation(rotation)
+        if (targetRotation == rotation) return
+        targetRotation = rotation
+        // First bind keeps CameraX's default (current display rotation), which is
+        // already correct in whichever orientation the app was launched; rebind
+        // only when an already-bound session must flip.
+        if (provider != null && surfaceTexture != null) bindUseCases()
     }
 
     private fun bindUseCases() {
@@ -79,9 +88,9 @@ class CameraController(
         val st = surfaceTexture ?: return
         p.unbindAll()
 
-        val preview = Preview.Builder()
-            .setTargetResolution(targetSize)
-            .build()
+        val previewBuilder = Preview.Builder().setTargetResolution(targetSize)
+        targetRotation?.let { previewBuilder.setTargetRotation(it) }
+        val preview = previewBuilder.build()
         this.preview = preview
 
         val selector = CameraSelector.Builder()

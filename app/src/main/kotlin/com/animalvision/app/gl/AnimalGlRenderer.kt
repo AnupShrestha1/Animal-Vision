@@ -65,7 +65,8 @@ class AnimalGlRenderer(
 
     private val kernelUniform = FloatArray(17)
     private var kernelRadius = 0
-    private var loggedTransform = false
+    private var loggedTransform = 0
+    private val lastLoggedMatrix = FloatArray(16)
     private val texMatrix = FloatArray(16).also {
         it[0] = 1f; it[5] = 1f; it[10] = 1f; it[15] = 1f
     }
@@ -308,8 +309,13 @@ class AnimalGlRenderer(
         st.updateTexImage()
         st.getTransformMatrix(texMatrix)
         uploadPendingLut()
-        if (!loggedTransform) {
-            loggedTransform = true
+        var matrixChanged = false
+        for (k in 0 until 15) {
+            if (texMatrix[k] != lastLoggedMatrix[k]) { matrixChanged = true; break }
+        }
+        if (matrixChanged && loggedTransform < 10) {
+            loggedTransform++
+            System.arraycopy(texMatrix, 0, lastLoggedMatrix, 0, 16)
             val c = StringBuilder()
             val corners = floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f, 1f, 1f)
             for (k in 0 until 4) {
@@ -319,7 +325,7 @@ class AnimalGlRenderer(
             }
             android.util.Log.i(
                 "AnimalVision",
-                "AVDBG tier=${tierW}x${tierH} screen=${screenW}x${screenH} " +
+                "AVDBG uv#$loggedTransform tier=${tierW}x${tierH} screen=${screenW}x${screenH} " +
                     "cam=${cameraTexSize[0]}x${cameraTexSize[1]} uv=$c",
             )
         }
