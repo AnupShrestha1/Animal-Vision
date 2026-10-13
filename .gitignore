@@ -9,3 +9,11 @@ coverage/
 local.properties
 .idea/
 *.iml
+
+# Gradle build scratch that can appear when the Gradle user home is project-local
+/android/
+/daemon/
+/kotlin-profile/
+/native/
+/notifications/
+/wrapper/

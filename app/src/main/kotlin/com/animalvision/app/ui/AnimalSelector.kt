@@ -6,12 +6,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -29,8 +30,10 @@ import androidx.compose.ui.unit.dp
 import com.animalvision.core.model.AnimalVisionProfile
 
 /**
- * Horizontal animal selector strip (spec §18): each chip announces name + overall
- * confidence as a screen-reader label.
+ * Horizontal animal selector strip (spec §18): each chip shows a cartoon
+ * portrait of the species — drawn in one shared art style (see
+ * [CartoonAnimalFace]) — with the name and overall confidence beneath it, and
+ * announces the name plus confidence as a screen-reader label.
  */
 @Composable
 fun AnimalSelector(
@@ -53,11 +56,15 @@ fun AnimalSelector(
                     .clip(RoundedCornerShape(14.dp))
                     .background(
                         if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-                        else AvPanel.copy(alpha = 0.82f)
+                        else AvPanel.copy(alpha = 0.82f),
                     )
                     .then(
                         if (selected) {
-                            Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp))
+                            Modifier.border(
+                                1.5.dp,
+                                MaterialTheme.colorScheme.primary,
+                                RoundedCornerShape(14.dp),
+                            )
                         } else {
                             Modifier
                         },
@@ -72,9 +79,11 @@ fun AnimalSelector(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                Text(
-                    text = animalGlyph(profile.id),
-                    style = MaterialTheme.typography.titleMedium,
+                CartoonAnimalFace(
+                    id = profile.id,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape),
                 )
                 Text(
                     text = profile.name,
@@ -92,23 +101,4 @@ fun AnimalSelector(
             }
         }
     }
-}
-
-/** Simple text glyphs — avoids shipping icon assets while staying readable (spec §36). */
-fun animalGlyph(id: String): String = when (id) {
-    "human" -> "◑"
-    "dog" -> "◉"
-    "cat" -> "◐"
-    "horse" -> "◈"
-    "eagle" -> "✦"
-    "bee" -> "✤"
-    "snake" -> "∿"
-    "pigeon" -> "◍"
-    "chicken" -> "❋"
-    "butterfly" -> "✿"
-    "fly" -> "✛"
-    "octopus" -> "❂"
-    "mantisshrimp" -> "✹"
-    "dolphin" -> "◒"
-    else -> "○"
 }
