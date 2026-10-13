@@ -1,5 +1,6 @@
 package com.animalvision.app.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -27,7 +29,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
@@ -36,6 +40,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.animalvision.app.DisplayMode
 import com.animalvision.core.model.AnimalVisionProfile
+import kotlinx.coroutines.withTimeoutOrNull
+
+/** A press shorter than this is a tap (focus); longer is a hold (peek at human vision). */
+private const val HOLD_DELAY_MS = 200L
 
 /**
  * Central camera experience (spec §17–18): viewfinder with before/after controls,
@@ -49,6 +57,7 @@ fun CameraScreen(
     onSetMode: (Int) -> Unit,
     onHoldStart: () -> Unit,
     onHoldEnd: () -> Unit,
+    onTapFocus: (x: Float, y: Float) -> Unit,
     educationalMode: Boolean,
     capabilityNote: String?,
     statusMessage: String?,
@@ -72,24 +81,54 @@ fun CameraScreen(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
 
+    // Last tap-to-focus position (px) and a counter that restarts the ring animation.
+    var focusPoint by remember { mutableStateOf<Offset?>(null) }
+    var focusTick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(focusTick) {
+        if (focusPoint != null) {
+            kotlinx.coroutines.delay(900)
+            focusPoint = null
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
-        // --- press-and-hold viewfinder gesture (spec §20) ---
+        // --- viewfinder gestures: tap = focus, press-and-hold = peek at human vision (spec §20) ---
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onPress = {
-                            onHoldStart()
-                            try {
-                                awaitRelease()
-                            } finally {
-                                onHoldEnd()
+                            // Only a press held past the tap window peeks at human vision, so
+                            // a quick tap-to-focus doesn't flash the normal view.
+                            val released = withTimeoutOrNull(HOLD_DELAY_MS) { tryAwaitRelease() }
+                            if (released == null) {
+                                onHoldStart()
+                                try {
+                                    awaitRelease()
+                                } finally {
+                                    onHoldEnd()
+                                }
                             }
+                        },
+                        onTap = { offset ->
+                            focusPoint = offset
+                            focusTick++
+                            onTapFocus(offset.x / size.width, offset.y / size.height)
                         },
                     )
                 },
         )
+        focusPoint?.let { p ->
+            Canvas(Modifier.fillMaxSize()) {
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.85f),
+                    radius = 36.dp.toPx(),
+                    center = p,
+                    style = Stroke(width = 2.dp.toPx()),
+                )
+            }
+        }
 
         // --- split-mode divider label ---
         if (displayMode == DisplayMode.SPLIT) {

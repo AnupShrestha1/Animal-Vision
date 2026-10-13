@@ -123,7 +123,12 @@ object Shaders2 {
             else if (x < 0.75) { float s = (x - 0.5) / 0.25; return vec3(0.8 + 0.2 * s, 0.9 * s, 0.8 - 0.5 * s); }
             else { float s = (x - 0.75) / 0.25; return vec3(1.0, 0.9 + 0.1 * s, 0.3 + 0.7 * s); }
         }
-        vec3 filmic(vec3 x) { return x / (1.0 + x); }
+        // Mirrors ToneMap.filmic: identity below the 0.9 knee, smooth shoulder above.
+        vec3 filmic(vec3 x) {
+            x = max(x, vec3(0.0));
+            vec3 shoulder = 0.9 + 0.1 * (1.0 - exp(-(x - 0.9) / 0.1));
+            return mix(x, shoulder, step(vec3(0.9), x));
+        }
         vec3 linearToSrgb(vec3 c) {
             return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055,
                        step(vec3(0.0031308), c));

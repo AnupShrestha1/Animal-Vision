@@ -227,7 +227,7 @@ class MainActivity : ComponentActivity() {
         val st = surfaceTexture ?: return
         if (!cameraPermissionGranted || cameraStarted) return
         cameraStarted = true
-        cameraController.start(st, 1280, 720)
+        cameraController.start(st, 1920, 1080)
     }
 
 
@@ -372,6 +372,9 @@ class MainActivity : ComponentActivity() {
                     onSetMode = appState::setMode,
                     onHoldStart = { appState.setHoldToCompare(true) },
                     onHoldEnd = { appState.setHoldToCompare(false) },
+                    onTapFocus = { x, y ->
+                        renderer.viewToCameraPoint(x, y)?.let { (u, v) -> cameraController.focusAt(u, v) }
+                    },
                     educationalMode = appState.educationalMode,
                     capabilityNote = appState.capabilityNote,
                     statusMessage = appState.statusMessage,

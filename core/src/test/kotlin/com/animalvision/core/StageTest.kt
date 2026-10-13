@@ -5,6 +5,7 @@ import com.animalvision.core.stage.Acuity
 import com.animalvision.core.stage.Fov
 import com.animalvision.core.stage.LowLight
 import com.animalvision.core.stage.SpecialVision
+import com.animalvision.core.stage.ToneMap
 import com.animalvision.core.model.QualityTier
 import com.animalvision.core.model.StageId
 import com.animalvision.core.pipeline.Pipeline
@@ -206,6 +207,16 @@ class StageTest {
         assertThat(Fov.visibility(0.6f, p)).isWithin(1e-6f).of(1f)
         // a blind spot below the peripheral level fades out
         assertThat(Fov.visibility(0.09f, p)).isLessThan(0.3f)
+    }
+
+    @Test
+    fun `tone map leaves SDR midtones untouched and keeps white near white`() {
+        assertThat(ToneMap.filmic(0.18)).isEqualTo(0.18)
+        assertThat(ToneMap.filmic(0.5)).isEqualTo(0.5)
+        assertThat(ToneMap.filmic(1.0)).isGreaterThan(0.95)
+        assertThat(ToneMap.filmic(5.0)).isAtMost(1.0)
+        // monotonic across the knee
+        assertThat(ToneMap.filmic(0.91)).isGreaterThan(ToneMap.filmic(0.9))
     }
 
     private fun getProfilesAll() = com.animalvision.core.profiles.profileRegistry

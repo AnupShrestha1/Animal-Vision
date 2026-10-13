@@ -24,7 +24,8 @@ class AppState {
         private set
     var holdingNormal by mutableStateOf(false)
         private set
-    var qualityTier by mutableStateOf(QualityTier.BALANCED)
+    // Start at full quality; the renderer steps down automatically if frames drop.
+    var qualityTier by mutableStateOf(QualityTier.HIGH)
         private set
     var educationalMode by mutableStateOf(true)
     var lowLightEnabled by mutableStateOf(true)

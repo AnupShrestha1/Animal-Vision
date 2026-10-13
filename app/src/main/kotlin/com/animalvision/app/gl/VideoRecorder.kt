@@ -93,7 +93,8 @@ class VideoRecorder(
         srcTexture: Int,
         srcW: Int,
         srcH: Int,
-        presentationTimeUs: Long,
+        /** Frame timestamp in NANOSECONDS — what eglPresentationTimeANDROID expects. */
+        presentationTimeNs: Long,
         display: EGLDisplay?,
         context: EGLContext?,
         windowSurface: EGLSurface?,
@@ -119,7 +120,7 @@ class VideoRecorder(
         GlPrimitives.bindQuad()
         GlPrimitives.drawFsQuad()
 
-        android.opengl.EGLExt.eglPresentationTimeANDROID(d, surf, presentationTimeUs)
+        android.opengl.EGLExt.eglPresentationTimeANDROID(d, surf, presentationTimeNs)
         EGL14.eglSwapBuffers(d, surf)
 
         if (windowSurface != null) {
@@ -147,7 +148,8 @@ class VideoRecorder(
         layout(location = 0) in vec2 aPos;
         out vec2 vUv;
         void main() {
-            vUv = vec2(aPos.x, -aPos.y) * 0.5 + 0.5;
+            // Same orientation as the on-screen pass: the encoder surface is not y-flipped.
+            vUv = aPos * 0.5 + 0.5;
             gl_Position = vec4(aPos, 0.0, 1.0);
         }
         """.trimIndent(),

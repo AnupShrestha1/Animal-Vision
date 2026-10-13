@@ -49,7 +49,7 @@ class AnimalGlRenderer(
 
     private var oesTexture = 0
     private var surfaceTexture: SurfaceTexture? = null
-    @Volatile private var cameraTexSize = intArrayOf(1280, 720)
+    @Volatile private var cameraTexSize = intArrayOf(1920, 1080)
 
     private var oesProg = 0
     private var lowlightProg = 0
@@ -79,6 +79,15 @@ class AnimalGlRenderer(
     private val texMatrix = FloatArray(16).also {
         it[0] = 1f; it[5] = 1f; it[10] = 1f; it[15] = 1f
     }
+
+    // Last displayed frame's view -> camera mapping, for tap-to-focus (written on the GL
+    // thread, read on the UI thread under [meterLock]).
+    private val meterLock = Any()
+    private val meterMatrix = FloatArray(16)
+    private val meterCrop = FloatArray(2)
+    private val meterWarp = FloatArray(2)
+    private var meterMode = 1
+    private var meterValid = false
 
     private var frameCount = 0
     private var noiseFrame = 0
@@ -230,9 +239,11 @@ class AnimalGlRenderer(
     companion object {
         fun internalSize(screenW: Int, screenH: Int, tier: QualityTier): Pair<Int, Int> {
             val maxDim = when (tier) {
-                QualityTier.HIGH -> 1280
-                QualityTier.BALANCED -> 960
-                QualityTier.PERFORMANCE -> 640
+                // High matches the 1920×1080 camera stream, so the viewfinder keeps every
+                // pixel the sensor delivers; lower tiers trade detail for frame rate.
+                QualityTier.HIGH -> 1920
+                QualityTier.BALANCED -> 1440
+                QualityTier.PERFORMANCE -> 960
             }
             val scale = Math.min(1.0, maxDim.toDouble() / Math.max(screenW, screenH))
             val w = Math.max(2, (screenW * scale).toInt() and -2)
@@ -240,10 +251,15 @@ class AnimalGlRenderer(
             return w to h
         }
 
-        /** Largest per-level blur sigma; lower tiers blur on coarser levels with fewer taps. */
+        /**
+         * Largest blur sigma applied at one pyramid level. A Gaussian of sigma ≥ ~1 px leaves
+         * almost nothing above half the sampling rate (≈1.5% at 0.25 cycles/px), so blurring on
+         * a 2× coarser level from there is visually identical and ~4× cheaper per level. This
+         * keeps moderate blurs (dog/horse ≈ 2 px at 1920) off full-resolution passes.
+         */
         private fun maxSigmaPerLevel(tier: QualityTier): Double = when (tier) {
-            QualityTier.HIGH, QualityTier.BALANCED -> 2.6
-            QualityTier.PERFORMANCE -> 1.3
+            QualityTier.HIGH, QualityTier.BALANCED -> 1.0
+            QualityTier.PERFORMANCE -> 0.75
         }
     }
 
@@ -339,11 +355,12 @@ class AnimalGlRenderer(
         val t = ensureTargets(tier)
         GlPrimitives.bindQuad()
         renderPipeline(t, profile, tier, mode)
+        snapshotMetering(t, profile, tier, mode)
 
         // video: render the final target into the MediaCodec input surface
         videoRecorder?.let { rec ->
             rec.renderFrame(
-                t.final.tex, t.w, t.h, System.nanoTime() / 1000L,
+                t.final.tex, t.w, t.h, System.nanoTime(),
                 eglDisplay, eglContext, windowSurface,
             )
         }
@@ -359,6 +376,48 @@ class AnimalGlRenderer(
         GlPrimitives.drawFsQuad()
 
         updateFps()
+    }
+
+    private fun snapshotMetering(t: FrameTargets, profile: AnimalVisionProfile, tier: QualityTier, mode: Int) {
+        val (cropX, cropY) = computeCrop(t.w, t.h)
+        val warp = if (Pipeline.isActive(profile, StageId.FOV, tier)) Fov.warpCoefficients(profile) else null
+        synchronized(meterLock) {
+            System.arraycopy(texMatrix, 0, meterMatrix, 0, 16)
+            meterCrop[0] = cropX
+            meterCrop[1] = cropY
+            meterWarp[0] = warp?.get(0) ?: 0f
+            meterWarp[1] = warp?.get(1) ?: 0f
+            meterMode = mode
+            meterValid = true
+        }
+    }
+
+    /**
+     * Maps a point on the viewfinder ([x], [y] in 0..1, top-left origin) to the camera buffer
+     * (0..1, top-left origin) by replaying the last frame's sampling chain: the FOV warp (only
+     * where the animal image is shown), the cover-crop, and the SurfaceTexture transform. The
+     * transform's output t-axis already runs top-down in the buffer, so no flip is needed.
+     * Returns null before the first frame.
+     */
+    fun viewToCameraPoint(x: Float, y: Float): Pair<Float, Float>? = synchronized(meterLock) {
+        if (!meterValid) return null
+        // Viewfinder (y down) -> final-pass UV (y up).
+        var ux = x
+        var uy = 1f - y
+        val warped = meterMode == 1 || (meterMode == 2 && ux < 0.5f)
+        if (warped) {
+            // Same remap as Shaders2.FRAG_FINAL warpedUv().
+            val cx = ux - 0.5f
+            val cy = uy - 0.5f
+            ux = 0.5f + cx * (1f + meterWarp[0] * (0.25f - cx * cx))
+            uy = 0.5f + cy * (1f + meterWarp[1] * (0.25f - cy * cy))
+        }
+        val qx = (ux - 0.5f) * meterCrop[0] + 0.5f
+        val qy = (uy - 0.5f) * meterCrop[1] + 0.5f
+        val m = meterMatrix
+        val s = m[0] * qx + m[4] * qy + m[12]
+        val t = m[1] * qx + m[5] * qy + m[13]
+        s.coerceIn(0f, 1f) to t.coerceIn(0f, 1f)
     }
 
     /** Re-frame from the always-portrait camera transform to the current display rotation. */

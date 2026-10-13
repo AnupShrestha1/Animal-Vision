@@ -77,7 +77,7 @@ happens only in the final pass.
 | 2 | Camera → species LUT | 33³ LUT from `LutGenerator`; plain feed until the first LUT lands |
 | 3 | Low light | shadow lift + rod desaturation + bounded noise (`BRIGHTNESS` stage) |
 | 4 | Acuity | `Acuity.plan` → pyramid blurs (central, peripheral, foveal unsharp) → FOV combine |
-| 5 | Final | FOV warp, thermal simulation, filmic tone map, sRGB, before/after mode |
+| 5 | Final | FOV warp, thermal simulation, highlight shoulder (identity below 0.9), sRGB, before/after mode |
 | 6 | Screen | final target → window; also copied to the encoder surface while recording |
 
 Only stages listed in the profile for the current tier run (`Pipeline.activeStages`).
@@ -96,18 +96,20 @@ Only stages listed in the profile for the current tier run (`Pipeline.activeStag
   black (`Fov.visibility`); ordinary periphery is blurred, not darkened.
 - **Foveal species** finer than the display (eagle) get only a bounded, halo-free unsharp mask.
 
-Large sigmas (bee ≈ 15–30 px) are realized by `BlurChain`: the frame is halved with 2×2 box
-filters until the remaining sigma fits a 17-tap kernel (`Acuity.pyramidLevel`, which subtracts
-the box prefilters' variance), blurred there, and upsampled by bilinear sampling in the combine
-pass. The Performance tier blurs one level coarser for fewer taps.
+Every blur is realized by `BlurChain`: the frame is halved with 2×2 box filters until the
+remaining sigma is at most ~1 px (`Acuity.pyramidLevel`, which subtracts the box prefilters'
+variance), blurred there with a short kernel, and upsampled by bilinear sampling in the combine
+pass. A blur that strong has almost no content above the coarser level's Nyquist limit, so the
+result matches a full-resolution blur at a fraction of the cost — moderate blurs (dog ≈ 2 px)
+run at half resolution, the bee's ≈ 30 px blur at 1/16. The Performance tier goes a step coarser.
 
 ## 5. Quality tiers and resources
 
 | Tier | Internal long side | Typical stages |
 |---|---|---|
-| High | 1280 | all profile stages |
-| Balanced (default) | 960 | profile-defined subset |
-| Performance | 640 | color + acuity + tone (no FOV warp) |
+| High (default) | 1920 | all profile stages |
+| Balanced | 1440 | profile-defined subset |
+| Performance | 960 | color + acuity + tone (no FOV warp) |
 
 - **Auto-degradation:** a 2 s FPS window; two consecutive windows under 20 fps request one
   tier step down (repeatable until Performance). The user can raise it again in Settings.
@@ -121,7 +123,7 @@ pass. The Performance tier blurs one level coarser for fewer taps.
 
 - **Photo:** always produced at the High-tier size. If the preview is running lower, the
   pipeline is re-run once into a temporary `FrameTargets` at full size, read back, and released.
-  The ceiling is the camera stream itself (requested at 1280×720).
+  The ceiling is the camera stream itself (requested at 1920×1080).
 - **Video:** the final target is drawn into a MediaCodec input surface at a fixed size. While
   recording, tier changes are deferred; a rotation stops and saves the recording (the encoder
   size cannot change mid-stream). Unpublished temp files are deleted, including leftovers from
