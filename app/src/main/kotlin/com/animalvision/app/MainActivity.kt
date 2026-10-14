@@ -10,6 +10,7 @@ import android.media.MediaMetadataRetriever
 import android.opengl.GLSurfaceView
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -24,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -407,6 +409,12 @@ class MainActivity : ComponentActivity() {
             )
 
             else -> Box(modifier = Modifier.fillMaxSize()) {
+                // A live viewfinder shouldn't dim or sleep. The flag belongs to this window, so it
+                // only holds while the camera screen is shown and the app is in front.
+                DisposableEffect(Unit) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    onDispose { window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+                }
                 androidx.compose.ui.viewinterop.AndroidView(
                     factory = { glView },
                     modifier = Modifier.fillMaxSize(),
