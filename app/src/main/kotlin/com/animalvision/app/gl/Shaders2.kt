@@ -133,8 +133,8 @@ object Shaders2 {
      * before/after display mode (normal / animal / split).
      *
      * `uWarp` is the FOV-geometry radial warp (Fov.warpCoefficients): it deforms ONLY the
-     * processed/animal image — the raw reference side stays on the standard lens, so Split
-     * mode contrasts true geometry (warp) against the human view, not just color.
+     * processed/animal image, and only in full Animal mode (the renderer passes 0 in Split
+     * mode so both halves meet on the same scene point at the divider).
      */
     val FRAG_FINAL = """
         #version 300 es

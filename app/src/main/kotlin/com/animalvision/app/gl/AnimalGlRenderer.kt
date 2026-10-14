@@ -417,7 +417,8 @@ class AnimalGlRenderer(
         // Viewfinder (y down) -> final-pass UV (y up).
         var ux = x
         var uy = 1f - y
-        val warped = meterMode == 1 || (meterMode == 2 && ux < meterSplit)
+        // Split mode renders both halves unwarped (see renderPipeline), so only Animal mode warps.
+        val warped = meterMode == 1
         if (warped) {
             // Same remap as Shaders2.FRAG_FINAL warpedUv().
             val cx = ux - 0.5f
@@ -550,7 +551,9 @@ class AnimalGlRenderer(
         GLES30.glUniform1i(GlPipeline.uniform(finalProg, "uThermal"), if (thermal) 1 else 0)
         // FOV geometry warp: panoramic wrap for wide-field prey, foveal tunnel for raptors.
         // Honors StageId.FOV tier gating (PERFORMANCE tier drops the stage -> no warp).
-        val warp = if (fovOn) Fov.warpCoefficients(profile) else floatArrayOf(0f, 0f)
+        // Split mode compares halves across a movable divider, so both must show the same scene
+        // point at the boundary: the wide-field warp is applied in full Animal mode only.
+        val warp = if (fovOn && mode != 2) Fov.warpCoefficients(profile) else floatArrayOf(0f, 0f)
         GLES30.glUniform2fv(GlPipeline.uniform(finalProg, "uWarp"), 1, warp, 0)
         val polar = Pipeline.isActive(profile, StageId.SPECIAL, tier) && profile.specialVision.polarizationSimulation
         GLES30.glUniform1i(GlPipeline.uniform(finalProg, "uPolar"), if (polar) 1 else 0)
