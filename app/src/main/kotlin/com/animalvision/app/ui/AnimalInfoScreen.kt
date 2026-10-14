@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import com.animalvision.core.model.AnimalVisionProfile
 import com.animalvision.core.model.SourceType
+import com.animalvision.core.stage.CompoundEye
 
 /**
  * Full-screen scientific info panel (spec §21): color/acuity/FOV/low-light facts,
@@ -141,6 +142,17 @@ fun AnimalInfoScreen(
             }
 
             SectionCard(title = "Acuity") {
+                if (profile.acuity.compoundEye) {
+                    Text(
+                        text = "Compound eye: facets about ${formatNumber(CompoundEye.facetPitchDeg(profile.acuity))}° " +
+                            "apart (two per cycle at the detail limit). The optional Facets view (honeycomb " +
+                            "button) shows one sample per facet. Insects see a single image, not many " +
+                            "copies of the scene.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AvTextPrimary,
+                        modifier = Modifier.padding(bottom = 6.dp),
+                    )
+                }
                 Text(
                     text = "Detail limit ${profile.acuity.cutoffCpd} cycles/degree " +
                         "(${(profile.acuity.relativeAcuity * 100).toInt()}% of a nominal human reference). " +

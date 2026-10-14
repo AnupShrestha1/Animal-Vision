@@ -56,7 +56,7 @@ val butterflyProfile = AnimalVisionProfile(
         discriminationAxes = listOf("UV-vs-G", "B-vs-G", "R-vs-G", "luminance"),
         lutNotes = "Insect tetrachromat (UV/B/G/R) with the documented UV false-color convention: UV is a blue-channel proxy (phones have no UV sensor), green/red from measured Papilio pigment peaks. Behaviorally the four channels are used as tetrachromacy (Koshitaka et al. 2008).",
     ),
-    acuity = AcuityModel(cutoffCpd = 1.0, relativeAcuity = 0.033, centralScalar = 1.0, peripheralScalar = 0.6),
+    acuity = AcuityModel(cutoffCpd = 1.0, relativeAcuity = 0.033, centralScalar = 1.0, peripheralScalar = 0.6, compoundEye = true),
     fieldOfView = FieldOfViewModel(
         totalHorizontalDeg = 250.0,
         binocularWidthDeg = 40.0,

@@ -1,5 +1,6 @@
 package com.animalvision.app.gl
 
+import com.animalvision.core.stage.CompoundEye
 import com.animalvision.core.stage.Fov
 import com.animalvision.core.stage.SpecialVision
 
@@ -9,6 +10,8 @@ object Shaders2 {
     private const val MUZZLE_NX = Fov.MUZZLE_NX
     private const val MUZZLE_FACTOR = Fov.MUZZLE_FACTOR
     private const val POLARIZATION_STRIPE_PX = SpecialVision.POLARIZATION_STRIPE_PX
+    private const val BORDER_FRACTION = CompoundEye.BORDER_FRACTION
+    private const val BORDER_DARKEN = CompoundEye.BORDER_DARKEN
 
 
     /** Separable Gaussian blur, horizontal pass. */
@@ -148,7 +151,25 @@ object Shaders2 {
         uniform vec2 uWarp;     // (kx, ky): >0 panoramic prey wrap, <0 foveal tunnel, 0 = none
         uniform int uPolar;     // 1 = simulated polarization cue (SpecialVision.applyPolarizationOverlay)
         uniform vec2 uResolution;
+        uniform int uMosaic;    // 1 = ommatidial mosaic (CompoundEye), animal side only
+        uniform float uFacetPx; // facet pitch in pixels
         out vec4 outColor;
+        // Mirrors CompoundEye.facetCenter: two offset rectangular lattices form the hex grid.
+        vec2 facetCenter(vec2 p, float pitch) {
+            vec2 r = vec2(pitch, pitch * 1.7320508);
+            vec2 a = floor(p / r) * r + r * 0.5;
+            vec2 b = floor((p - r * 0.5) / r) * r + r;
+            vec2 da = p - a;
+            vec2 db = p - b;
+            return dot(da, da) <= dot(db, db) ? a : b;
+        }
+        // Mirrors CompoundEye.borderFactor.
+        float facetBorder(vec2 p, vec2 c, float pitch) {
+            vec2 d = abs(p - c);
+            float hex = max(d.x, d.x * 0.5 + d.y * 0.8660254) / (pitch * 0.5);
+            float t = clamp((hex - (1.0 - 2.0 * ${BORDER_FRACTION})) / (2.0 * ${BORDER_FRACTION}), 0.0, 1.0);
+            return 1.0 - ${BORDER_DARKEN} * t * t * (3.0 - 2.0 * t);
+        }
         vec3 thermalPalette(float x) {
             if (x < 0.25) { float s = x / 0.25; return vec3(0.0, 0.0, 0.5 * s); }
             else if (x < 0.5) { float s = (x - 0.25) / 0.25; return vec3(0.8 * s, 0.0, 0.5 + 0.3 * s); }
@@ -173,7 +194,17 @@ object Shaders2 {
             return clamp(w, vec2(0.001), vec2(0.999));
         }
         void main() {
-            vec3 proc = texture(uProc, warpedUv(vUv)).rgb;
+            vec2 sampleUv = vUv;
+            float facet = 1.0;
+            bool animalSide = uMode == 1 || (uMode == 2 && vUv.x < uSplit);
+            if (uMosaic == 1 && animalSide) {
+                // Pixel centre with a top-left origin, like the CPU reference.
+                vec2 p = vec2(gl_FragCoord.x, uResolution.y - gl_FragCoord.y);
+                vec2 c = facetCenter(p, uFacetPx);
+                facet = facetBorder(p, c, uFacetPx);
+                sampleUv = vec2(c.x / uResolution.x, 1.0 - c.y / uResolution.y);
+            }
+            vec3 proc = texture(uProc, warpedUv(sampleUv)).rgb * facet;
             vec3 raw = texture(uRaw, vUv).rgb;
             if (uThermal == 1) {
                 float luma = dot(proc, vec3(0.2126, 0.7152, 0.0722));

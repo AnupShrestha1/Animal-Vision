@@ -107,6 +107,11 @@ normalization cover it.
   black (`Fov.visibility`); ordinary periphery is blurred, not darkened.
 - **Foveal species** finer than the display (eagle) get only a bounded, halo-free unsharp mask.
 
+**Compound eyes** (bee, fruit fly, butterfly, mantis shrimp) can optionally be shown as an
+ommatidial mosaic (`CompoundEye`, honeycomb button): hexagonal facets spaced Δφ = 1/(2ν) from the
+acuity limit, each showing the single value at its centre. It is one image sampled by many
+facets — the popular "many copies of the scene" picture is a myth and is never drawn.
+
 Every blur is realized by `BlurChain`: the frame is halved with 2×2 box filters until the
 remaining sigma is at most ~1 px (`Acuity.pyramidLevel`, which subtracts the box prefilters'
 variance), blurred there with a short kernel, and upsampled by bilinear sampling in the combine

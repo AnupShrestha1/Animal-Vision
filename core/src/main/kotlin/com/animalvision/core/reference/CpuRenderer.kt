@@ -7,6 +7,7 @@ import com.animalvision.core.model.QualityTier
 import com.animalvision.core.model.StageId
 import com.animalvision.core.pipeline.Pipeline
 import com.animalvision.core.stage.Acuity
+import com.animalvision.core.stage.CompoundEye
 import com.animalvision.core.stage.Fov
 import com.animalvision.core.stage.LowLight
 import com.animalvision.core.stage.SpecialVision
@@ -21,6 +22,8 @@ class CpuRenderer(
     private val profile: AnimalVisionProfile,
     private val lut: Lut,
     private val tier: QualityTier = QualityTier.BALANCED,
+    /** Optional ommatidial mosaic (compound-eyed species only; see CompoundEye). */
+    private val facetMosaic: Boolean = false,
 ) {
     private val stages: List<StageId> = Pipeline.activeStages(profile, tier)
     private fun active(s: StageId): Boolean = s in stages
@@ -92,6 +95,23 @@ class CpuRenderer(
                 }
             }
             out[0].copyInto(r); out[1].copyInto(g); out[2].copyInto(b)
+        }
+
+        // 5b. optional ommatidial mosaic: one sample per facet (mirrors Shaders2.FRAG_FINAL)
+        if (facetMosaic && profile.acuity.compoundEye) {
+            val pitch = CompoundEye.facetPitchPixels(profile.acuity, width, height)
+            val r0 = r.copyOf(); val g0 = g.copyOf(); val b0 = b.copyOf()
+            for (y in 0 until height) {
+                for (x in 0 until width) {
+                    val c = CompoundEye.facetCenter(x + 0.5, y + 0.5, pitch)
+                    val sx = c[0].toInt().coerceIn(0, width - 1)
+                    val sy = c[1].toInt().coerceIn(0, height - 1)
+                    val k = CompoundEye.borderFactor(x + 0.5, y + 0.5, pitch).toFloat()
+                    val i = y * width + x
+                    val j = sy * width + sx
+                    r[i] = r0[j] * k; g[i] = g0[j] * k; b[i] = b0[j] * k
+                }
+            }
         }
 
         // 6. special vision — thermal simulation only (UV is part of the color LUT)

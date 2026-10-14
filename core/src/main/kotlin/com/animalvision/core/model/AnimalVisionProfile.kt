@@ -79,6 +79,8 @@ data class AcuityModel(
     val centralScalar: Double,
     /** Peripheral scalar (< 1 means peripheral falloff). */
     val peripheralScalar: Double,
+    /** Compound (faceted) eye: enables the optional ommatidial mosaic (stage/CompoundEye). */
+    val compoundEye: Boolean = false,
 )
 
 data class FieldOfViewModel(

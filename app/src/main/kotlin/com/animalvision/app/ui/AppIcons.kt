@@ -50,6 +50,26 @@ object AppIcons {
         }
     }
 
+    /** Three hexagonal facets (compound-eye mosaic toggle). */
+    val Facets: ImageVector = icon("Facets") {
+        fun hex(cx: Float, cy: Float, r: Float) = path(
+            stroke = SolidColor(Color.White),
+            strokeLineWidth = 1.6f,
+            strokeLineJoin = StrokeJoin.Round,
+        ) {
+            moveTo(cx, cy - r)
+            lineTo(cx + r * 0.866f, cy - r * 0.5f)
+            lineTo(cx + r * 0.866f, cy + r * 0.5f)
+            lineTo(cx, cy + r)
+            lineTo(cx - r * 0.866f, cy + r * 0.5f)
+            lineTo(cx - r * 0.866f, cy - r * 0.5f)
+            close()
+        }
+        hex(7.8f, 8.6f, 4.6f)
+        hex(16.2f, 8.6f, 4.6f)
+        hex(12f, 15.9f, 4.6f)
+    }
+
     /** Two curved arrows chasing each other around a lens. */
     val CameraSwitch: ImageVector = icon("CameraSwitch") {
         val arrows = SolidColor(Color.White)

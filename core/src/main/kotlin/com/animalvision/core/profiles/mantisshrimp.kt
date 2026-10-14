@@ -56,7 +56,7 @@ val mantisshrimpProfile = AnimalVisionProfile(
         discriminationAxes = listOf("UV-vs-G", "B-vs-G", "R-vs-G", "luminance"),
         lutNotes = "Four REPRESENTATIVE classes (UV/blue/green/red) stand in for the documented 16-class mosaic; peaks are MODELED representatives, not literal class measurements. Stomatopod colour is labelled-line, not opponent — this mapping is a visualization, not a reproduction of their processing.",
     ),
-    acuity = AcuityModel(cutoffCpd = 2.0, relativeAcuity = 0.0667, centralScalar = 1.0, peripheralScalar = 0.6),
+    acuity = AcuityModel(cutoffCpd = 2.0, relativeAcuity = 0.0667, centralScalar = 1.0, peripheralScalar = 0.6, compoundEye = true),
     fieldOfView = FieldOfViewModel(
         totalHorizontalDeg = 300.0,
         binocularWidthDeg = 40.0,

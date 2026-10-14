@@ -127,6 +127,8 @@ fun CameraScreen(
     onSwitchCamera: () -> Unit,
     onOpenInfo: () -> Unit,
     onOpenSettings: () -> Unit,
+    facetMosaic: Boolean,
+    onToggleFacets: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val configuration = LocalConfiguration.current
@@ -240,6 +242,8 @@ fun CameraScreen(
             onToggleTorch = onToggleTorch,
             onSwitchCamera = onSwitchCamera,
             onOpenSettings = onOpenSettings,
+            facetMosaic = facetMosaic,
+            onToggleFacets = onToggleFacets,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
@@ -339,6 +343,8 @@ private fun TopChrome(
     onToggleTorch: () -> Unit,
     onSwitchCamera: () -> Unit,
     onOpenSettings: () -> Unit,
+    facetMosaic: Boolean,
+    onToggleFacets: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
@@ -347,6 +353,14 @@ private fun TopChrome(
             Spacer(Modifier.weight(1f))
             if (isRecording) RecTimer(recordingStartedAtMs)
             Spacer(Modifier.weight(1f))
+            if (profile.acuity.compoundEye) {
+                GlassIconButton(
+                    icon = AppIcons.Facets,
+                    contentDesc = if (facetMosaic) "Hide compound-eye facets" else "Show compound-eye facets",
+                    active = facetMosaic,
+                    onClick = onToggleFacets,
+                )
+            }
             if (hasFlash) {
                 GlassIconButton(
                     icon = if (torchOn) AppIcons.FlashOn else AppIcons.FlashOff,

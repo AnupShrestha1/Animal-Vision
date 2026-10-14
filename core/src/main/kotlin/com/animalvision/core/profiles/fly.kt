@@ -53,7 +53,7 @@ val flyProfile = AnimalVisionProfile(
         discriminationAxes = listOf("UV-vs-G", "B-vs-G", "luminance"),
         lutNotes = "Fly trichromat (UV/B/G) with the same documented UV false-color convention as the bee: UV rendered from the camera's blue channel (no phone UV sensor). The R1–6 motion pathway is green-sensitive (Rh1 ≈485 nm in vivo).",
     ),
-    acuity = AcuityModel(cutoffCpd = 0.4, relativeAcuity = 0.0133, centralScalar = 1.0, peripheralScalar = 0.5),
+    acuity = AcuityModel(cutoffCpd = 0.4, relativeAcuity = 0.0133, centralScalar = 1.0, peripheralScalar = 0.5, compoundEye = true),
     fieldOfView = FieldOfViewModel(
         totalHorizontalDeg = 300.0,
         binocularWidthDeg = 50.0,

@@ -13,6 +13,7 @@ import com.animalvision.core.model.QualityTier
 import com.animalvision.core.model.StageId
 import com.animalvision.core.pipeline.Pipeline
 import com.animalvision.core.stage.Acuity
+import com.animalvision.core.stage.CompoundEye
 import com.animalvision.core.stage.Fov
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -34,6 +35,8 @@ class AnimalGlRenderer(
     private val zoomProvider: () -> Float = { 1f },
     /** Split-mode divider position, 0..1 from the left (animal on the left). */
     private val splitProvider: () -> Float = { 0.5f },
+    /** Optional ommatidial mosaic for compound-eyed species. */
+    private val mosaicProvider: () -> Boolean = { false },
 ) : GLSurfaceView.Renderer {
 
     var onSurfaceTextureReady: ((SurfaceTexture) -> Unit)? = null
@@ -555,6 +558,12 @@ class AnimalGlRenderer(
         // point at the boundary: the wide-field warp is applied in full Animal mode only.
         val warp = if (fovOn && mode != 2) Fov.warpCoefficients(profile) else floatArrayOf(0f, 0f)
         GLES30.glUniform2fv(GlPipeline.uniform(finalProg, "uWarp"), 1, warp, 0)
+        val mosaic = mosaicProvider() && profile.acuity.compoundEye
+        GLES30.glUniform1i(GlPipeline.uniform(finalProg, "uMosaic"), if (mosaic) 1 else 0)
+        GLES30.glUniform1f(
+            GlPipeline.uniform(finalProg, "uFacetPx"),
+            CompoundEye.facetPitchPixels(profile.acuity, t.w, t.h, viewFov).toFloat(),
+        )
         val polar = Pipeline.isActive(profile, StageId.SPECIAL, tier) && profile.specialVision.polarizationSimulation
         GLES30.glUniform1i(GlPipeline.uniform(finalProg, "uPolar"), if (polar) 1 else 0)
         GLES30.glUniform2f(GlPipeline.uniform(finalProg, "uResolution"), t.w.toFloat(), t.h.toFloat())

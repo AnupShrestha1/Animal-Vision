@@ -104,6 +104,7 @@ class MainActivity : ComponentActivity() {
             lowLightGate = { appState.lowLightEnabled },
             zoomProvider = { appState.zoom },
             splitProvider = { appState.splitPosition },
+            mosaicProvider = { appState.facetMosaic },
         )
         // Seed the current display rotation so a launch already in landscape
         // renders upright (the camera always binds at ROTATION_0; the renderer
@@ -444,6 +445,14 @@ class MainActivity : ComponentActivity() {
                     onSwitchCamera = ::switchCamera,
                     onOpenInfo = { appState.showInfo = true },
                     onOpenSettings = { appState.showSettings = true },
+                    facetMosaic = appState.facetMosaic,
+                    onToggleFacets = {
+                        appState.facetMosaic = !appState.facetMosaic
+                        appState.announce(
+                            if (appState.facetMosaic) "Facets: one sample per ommatidium — one image, not many copies"
+                            else "Facets off",
+                        )
+                    },
                 )
 
                 // System back closes an open panel instead of leaving the app.

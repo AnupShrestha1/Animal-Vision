@@ -145,6 +145,31 @@ class CpuRendererTest {
     }
 
     @Test
+    fun `facet mosaic gives one value per ommatidium and is off by default`() {
+        // Horizontal gradient: without the mosaic neighbouring pixels differ, with it whole
+        // facets share the value sampled at their centre. 650 px over 65 deg = 10 px/deg, so
+        // the bee's 1 deg facets are 10 px wide.
+        val big = 650
+        val s = Scene(big, big)
+        for (x in 0 until big) {
+            val v = (x * 255 / big)
+            s.fill(x, 0, x + 1, big, (0xff shl 24) or (v shl 16) or (v shl 8) or v)
+        }
+        val bee = getProfile("bee")!!
+        val lut = LutGenerator.generate(ColorTransform(bee), size = 17)
+        val plain = CpuRenderer(bee, lut).render(s.raw, big, big)
+        val mosaic = CpuRenderer(bee, lut, facetMosaic = true).render(s.raw, big, big)
+        // a facet centre and a pixel 2 px away inside the same facet
+        val c = com.animalvision.core.stage.CompoundEye.facetCenter(325.0, 325.0, 10.0)
+        val i0 = c[1].toInt() * big + c[0].toInt()
+        val i1 = c[1].toInt() * big + c[0].toInt() + 2
+        assertThat(mosaic[i0]).isEqualTo(mosaic[i1])
+        assertThat(plain.contentEquals(mosaic)).isFalse()
+        // default renderer (mosaic off) matches the explicit off
+        assertThat(CpuRenderer(bee, lut, facetMosaic = false).render(s.raw, big, big).contentEquals(plain)).isTrue()
+    }
+
+    @Test
     fun `all renders are deterministic`() {
         val a = render("cat", chipScene())
         val b = render("cat", chipScene())

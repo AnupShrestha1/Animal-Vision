@@ -50,7 +50,7 @@ val beeProfile = AnimalVisionProfile(
         discriminationAxes = listOf("U-vs-G", "B-vs-G", "luminance"),
         lutNotes = "UV/B/G trichromat mapping. UV rendered as standard false-color (magenta). UV is a BLUE-CHANNEL PROXY — not measured UV.",
     ),
-    acuity = AcuityModel(cutoffCpd = 0.5, relativeAcuity = 0.0167, centralScalar = 1.0, peripheralScalar = 0.5),
+    acuity = AcuityModel(cutoffCpd = 0.5, relativeAcuity = 0.0167, centralScalar = 1.0, peripheralScalar = 0.5, compoundEye = true),
     fieldOfView = FieldOfViewModel(
         totalHorizontalDeg = 300.0,
         binocularWidthDeg = 15.0,

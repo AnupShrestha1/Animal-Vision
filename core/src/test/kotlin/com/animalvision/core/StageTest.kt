@@ -2,6 +2,7 @@ package com.animalvision.core
 
 import com.animalvision.core.profiles.getProfile
 import com.animalvision.core.stage.Acuity
+import com.animalvision.core.stage.CompoundEye
 import com.animalvision.core.stage.Fov
 import com.animalvision.core.stage.LowLight
 import com.animalvision.core.stage.Motion
@@ -267,6 +268,33 @@ class StageTest {
         // Zoomed 4x, even the bee's narrow 15 deg band fills most of the frame.
         val bee = Fov.maskParams(getProfile("bee")!!, viewFovDeg = Fov.VIEW_FOV_DEGREES / 4.0)
         assertThat(bee.halfWidth).isGreaterThan(0.9)
+    }
+
+    @Test
+    fun `facet pitch follows the acuity limit and only compound eyes get one`() {
+        val bee = getProfile("bee")!!.acuity
+        assertThat(CompoundEye.facetPitchDeg(bee)).isWithin(1e-9).of(1.0) // 0.5 c/deg -> 1 deg
+        val compound = getProfilesAll().filter { it.acuity.compoundEye }.map { it.id }.toSet()
+        assertThat(compound).containsExactly("bee", "fly", "butterfly", "mantisshrimp")
+    }
+
+    @Test
+    fun `facet lattice is hexagonal and every point snaps to one centre`() {
+        val p = 20.0
+        val c = CompoundEye.facetCenter(37.0, 41.0, p)
+        // the centre snaps to itself, nearby points share it
+        assertThat(CompoundEye.facetCenter(c[0], c[1], p).toList()).isEqualTo(c.toList())
+        assertThat(CompoundEye.facetCenter(c[0] + 3.0, c[1] - 3.0, p).toList()).isEqualTo(c.toList())
+        // the six neighbours sit exactly one pitch away
+        for (k in 0 until 6) {
+            val a = Math.toRadians(k * 60.0)
+            val n = CompoundEye.facetCenter(c[0] + p * Math.cos(a), c[1] + p * Math.sin(a), p)
+            val d = Math.hypot(n[0] - c[0], n[1] - c[1])
+            assertThat(d).isWithin(1e-6).of(p)
+        }
+        // borders are darker than centres
+        assertThat(CompoundEye.borderFactor(c[0], c[1], p)).isEqualTo(1.0)
+        assertThat(CompoundEye.borderFactor(c[0] + p * 0.5, c[1], p)).isLessThan(0.7)
     }
 
     private fun getProfilesAll() = com.animalvision.core.profiles.profileRegistry

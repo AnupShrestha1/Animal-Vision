@@ -70,6 +70,15 @@ class AppState(private val prefs: SharedPreferences? = null) {
             prefs?.edit()?.putBoolean(KEY_SHOW_STATS, value)?.apply()
         }
 
+    private var facetMosaicState by mutableStateOf(prefs?.getBoolean(KEY_FACETS, false) ?: false)
+    /** Optional ommatidial mosaic for compound-eyed species (off by default). */
+    var facetMosaic: Boolean
+        get() = facetMosaicState
+        set(value) {
+            facetMosaicState = value
+            prefs?.edit()?.putBoolean(KEY_FACETS, value)?.apply()
+        }
+
     /** Most recent saved photo/video, shown as a tappable thumbnail next to the shutter. */
     var lastCapture by mutableStateOf<LastCapture?>(null)
     /** Bumped on every shutter press; drives the capture flash. */
@@ -148,5 +157,6 @@ class AppState(private val prefs: SharedPreferences? = null) {
         const val KEY_LOW_LIGHT = "low_light"
         const val KEY_ONBOARDED = "onboarding_done"
         const val KEY_SHOW_STATS = "show_stats"
+        const val KEY_FACETS = "facet_mosaic"
     }
 }
