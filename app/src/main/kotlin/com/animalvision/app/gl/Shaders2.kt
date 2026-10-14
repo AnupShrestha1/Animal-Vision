@@ -143,6 +143,7 @@ object Shaders2 {
         uniform sampler2D uProc;
         uniform sampler2D uRaw;
         uniform int uMode;      // 0 normal, 1 animal, 2 split
+        uniform float uSplit;   // split divider position (0..1 from the left)
         uniform int uThermal;   // 1 = apply thermal simulation
         uniform vec2 uWarp;     // (kx, ky): >0 panoramic prey wrap, <0 foveal tunnel, 0 = none
         uniform int uPolar;     // 1 = simulated polarization cue (SpecialVision.applyPolarizationOverlay)
@@ -195,7 +196,7 @@ object Shaders2 {
             vec3 normal = linearToSrgb(filmic(raw));
             vec3 outRgb = (uMode == 1) ? animal : normal;
             if (uMode == 2) {
-                outRgb = (vUv.x < 0.5) ? animal : normal;
+                outRgb = (vUv.x < uSplit) ? animal : normal;
             }
             outColor = vec4(outRgb, 1.0);
         }

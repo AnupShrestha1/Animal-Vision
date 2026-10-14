@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -76,6 +77,12 @@ class AppState(private val prefs: SharedPreferences? = null) {
     /** Wall-clock start of the current recording (for the REC timer), 0 when idle. */
     var recordingStartedAtMs by mutableLongStateOf(0L)
 
+    /** Camera zoom ratio (1 = standard lens). Resets when the camera is rebound. */
+    var zoom by mutableFloatStateOf(1f)
+    var maxZoom by mutableFloatStateOf(1f)
+    /** Split-mode divider, 0..1 from the left. */
+    var splitPosition by mutableFloatStateOf(0.5f)
+
     var motionEnabled by mutableStateOf(true)
     var showSettings by mutableStateOf(false)
     var showInfo by mutableStateOf(false)
@@ -85,7 +92,6 @@ class AppState(private val prefs: SharedPreferences? = null) {
     var cameraPermission by mutableStateOf(false)
     var isRecording by mutableStateOf(false)
     var fps by mutableDoubleStateOf(0.0)
-    var capabilityNote by mutableStateOf<String?>(null)
     var cameraFacingBack by mutableStateOf(true)
     var torchOn by mutableStateOf(false)
     var hasFlash by mutableStateOf(false)

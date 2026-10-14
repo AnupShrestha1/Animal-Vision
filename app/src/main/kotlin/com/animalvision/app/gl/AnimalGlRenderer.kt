@@ -30,6 +30,10 @@ class AnimalGlRenderer(
     private val tierProvider: () -> QualityTier,
     private val modeProvider: () -> Int,
     private val lowLightGate: () -> Boolean = { true },
+    /** Camera zoom ratio (1 = standard lens); narrows the field the acuity model is scaled to. */
+    private val zoomProvider: () -> Float = { 1f },
+    /** Split-mode divider position, 0..1 from the left (animal on the left). */
+    private val splitProvider: () -> Float = { 0.5f },
 ) : GLSurfaceView.Renderer {
 
     var onSurfaceTextureReady: ((SurfaceTexture) -> Unit)? = null
@@ -91,6 +95,7 @@ class AnimalGlRenderer(
     private val meterCrop = FloatArray(2)
     private val meterWarp = FloatArray(2)
     private var meterMode = 1
+    private var meterSplit = 0.5f
     private var meterValid = false
 
     private var frameCount = 0
@@ -395,6 +400,7 @@ class AnimalGlRenderer(
             meterWarp[0] = warp?.get(0) ?: 0f
             meterWarp[1] = warp?.get(1) ?: 0f
             meterMode = mode
+            meterSplit = splitProvider()
             meterValid = true
         }
     }
@@ -411,7 +417,7 @@ class AnimalGlRenderer(
         // Viewfinder (y down) -> final-pass UV (y up).
         var ux = x
         var uy = 1f - y
-        val warped = meterMode == 1 || (meterMode == 2 && ux < 0.5f)
+        val warped = meterMode == 1 || (meterMode == 2 && ux < meterSplit)
         if (warped) {
             // Same remap as Shaders2.FRAG_FINAL warpedUv().
             val cx = ux - 0.5f
@@ -490,7 +496,9 @@ class AnimalGlRenderer(
 
         // 4. ACUITY (pyramid blur + FOV combine) — same plan as the CPU reference
         val fovOn = Pipeline.isActive(profile, StageId.FOV, tier)
-        val plan = Acuity.plan(profile.acuity, t.w, t.h)
+        // Zoom narrows the field shown, so each degree spans more pixels (Acuity.pxPerDegree).
+        val viewFov = Fov.VIEW_FOV_DEGREES / zoomProvider().coerceAtLeast(1f)
+        val plan = Acuity.plan(profile.acuity, t.w, t.h, viewFov)
         if (Pipeline.isActive(profile, StageId.ACUITY, tier) && !(plan.isNoop && !fovOn)) {
             val maxSigma = maxSigmaPerLevel(tier)
             t.blur.beginFrame()
@@ -512,7 +520,7 @@ class AnimalGlRenderer(
             setTex(combineProg, "uCentral", 1, central)
             setTex(combineProg, "uPeriph", 2, periph)
             setTex(combineProg, "uUnsharp", 3, unsharp)
-            val mask = Fov.maskParams(profile)
+            val mask = Fov.maskParams(profile, viewFov)
             GLES30.glUniform1f(GlPipeline.uniform(combineProg, "uHalfWidth"), mask.halfWidth.toFloat())
             GLES30.glUniform1f(GlPipeline.uniform(combineProg, "uYAspect"), mask.yAspect.toFloat())
             GLES30.glUniform1f(GlPipeline.uniform(combineProg, "uMaskPeripheral"), mask.peripheral.toFloat())
@@ -537,6 +545,7 @@ class AnimalGlRenderer(
         setTex(finalProg, "uProc", 0, srcTex)
         setTex(finalProg, "uRaw", 1, t.raw.tex)
         GLES30.glUniform1i(GlPipeline.uniform(finalProg, "uMode"), mode)
+        GLES30.glUniform1f(GlPipeline.uniform(finalProg, "uSplit"), splitProvider().coerceIn(0f, 1f))
         val thermal = Pipeline.isActive(profile, StageId.SPECIAL, tier) && profile.specialVision.infrared != null
         GLES30.glUniform1i(GlPipeline.uniform(finalProg, "uThermal"), if (thermal) 1 else 0)
         // FOV geometry warp: panoramic wrap for wide-field prey, foveal tunnel for raptors.

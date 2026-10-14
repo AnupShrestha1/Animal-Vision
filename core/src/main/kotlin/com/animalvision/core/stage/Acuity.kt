@@ -22,12 +22,13 @@ object Acuity {
     const val SHARPEN_AMOUNT = 0.35
 
     /**
-     * Pixels per visual degree for an image of [width]×[height] whose long side spans the
-     * nominal phone-lens field ([Fov.VIEW_FOV_DEGREES]). Blur sigmas must be derived from the
-     * resolution actually being processed, or apparent acuity would change with quality tier.
+     * Pixels per visual degree for an image of [width]×[height] whose long side spans
+     * [viewFovDeg] (the nominal phone-lens field, narrower when zoomed). Blur sigmas must be
+     * derived from the resolution and field actually shown, or apparent acuity would change
+     * with quality tier or zoom.
      */
-    fun pxPerDegree(width: Int, height: Int): Double =
-        Math.max(width, height) / Fov.VIEW_FOV_DEGREES
+    fun pxPerDegree(width: Int, height: Int, viewFovDeg: Double = Fov.VIEW_FOV_DEGREES): Double =
+        Math.max(width, height) / viewFovDeg
 
     /**
      * Per-frame acuity plan shared by the CPU reference and the GPU renderer.
@@ -46,8 +47,8 @@ object Acuity {
         val isNoop: Boolean get() = centralSigma == 0.0 && peripheralSigma == 0.0 && unsharpSigma == 0.0
     }
 
-    fun plan(model: AcuityModel, width: Int, height: Int): Plan {
-        val ppd = pxPerDegree(width, height)
+    fun plan(model: AcuityModel, width: Int, height: Int, viewFovDeg: Double = Fov.VIEW_FOV_DEGREES): Plan {
+        val ppd = pxPerDegree(width, height, viewFovDeg)
         fun sigma(cpd: Double): Double = blurSigmaPixels(cpd, ppd).let { if (it < MIN_SIGMA) 0.0 else it }
         val p = model.peripheralScalar.coerceIn(0.05, 1.0)
         val central = sigma(model.cutoffCpd)

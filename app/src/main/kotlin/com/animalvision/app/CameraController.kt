@@ -89,6 +89,17 @@ class CameraController(
         }
     }
 
+    /** Highest zoom ratio the bound camera offers (1 until bound). */
+    val maxZoom: Float get() = camera?.cameraInfo?.zoomState?.value?.maxZoomRatio ?: 1f
+
+    /** Set the zoom ratio (clamped to what the camera supports); returns the ratio applied. */
+    fun setZoom(ratio: Float): Float {
+        val cam = camera ?: return 1f
+        val applied = ratio.coerceIn(1f, maxZoom)
+        cam.cameraControl.setZoomRatio(applied)
+        return applied
+    }
+
     /** Whether the lens chosen by [selector] has optical image stabilization. */
     @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
     private fun supportsOis(p: ProcessCameraProvider, selector: CameraSelector): Boolean =

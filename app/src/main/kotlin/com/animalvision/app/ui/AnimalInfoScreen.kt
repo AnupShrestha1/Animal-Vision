@@ -94,6 +94,12 @@ fun AnimalInfoScreen(
                 FactChip("${profile.scientificData.confidence.overall.stars}/5", "overall confidence")
             }
 
+            tryTip(profile.id)?.let { tip ->
+                SectionCard(title = "Try this") {
+                    Text(text = tip, style = MaterialTheme.typography.bodyMedium, color = AvTextPrimary)
+                }
+            }
+
             val notices = simulationNotices(profile)
             if (notices.isNotEmpty()) {
                 SectionCard(title = "Simulated or not shown") {

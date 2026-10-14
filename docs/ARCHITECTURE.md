@@ -94,8 +94,11 @@ normalization cover it.
 
 `Acuity.plan(model, w, h)` is shared by GPU and CPU so both render the same thing:
 
-- **Pixels per degree** come from the resolution actually processed (long side spans the nominal
-  65° phone-lens field), so apparent acuity is the same at every tier.
+- **Pixels per degree** come from the resolution actually processed and the field actually shown
+  (65° phone lens, divided by the camera zoom), so apparent acuity is the same at every tier and
+  zooming in reveals the animal's true detail limit at screen scale instead of hiding it.
+- **Binocular band** is the animal's binocular width as a fraction of the shown field; when it is
+  wider than the frame (cat, human, any zoomed view) the whole frame is binocular.
 - **Central sigma** = `ppd / (2·cutoffCpd)` blurs the *whole* frame — a 0.5 c/deg bee does not
   see a sharp centre.
 - **Peripheral sigma** uses `cutoffCpd · peripheralScalar`; the FOV mask blends it in outside the

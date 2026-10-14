@@ -248,5 +248,26 @@ class StageTest {
         assertThat(bee).contains("described, not shown")
     }
 
+    @Test
+    fun `zooming in scales blur with the narrower field so acuity stays physical`() {
+        val dog = getProfile("dog")!!.acuity
+        val wide = Acuity.plan(dog, 1920, 1080)
+        val zoomed = Acuity.plan(dog, 1920, 1080, viewFovDeg = Fov.VIEW_FOV_DEGREES / 4.0)
+        assertThat(zoomed.centralSigma).isWithin(1e-9).of(wide.centralSigma * 4.0)
+    }
+
+    @Test
+    fun `binocular band matches the animal's binocular width within the frame`() {
+        // Dog: 45 deg of a 65 deg frame -> band edge at |nx| ~ 0.69.
+        val dog = Fov.maskParams(getProfile("dog")!!)
+        assertThat(dog.halfWidth).isWithin(0.01).of(45.0 / 65.0)
+        // Cat: 100 deg binocular is wider than the whole frame -> no peripheral falloff on screen.
+        val cat = Fov.maskParams(getProfile("cat")!!)
+        assertThat(Fov.maskAt(cat, 0.95, 0.0)).isWithin(1e-6).of(1.0)
+        // Zoomed 4x, even the bee's narrow 15 deg band fills most of the frame.
+        val bee = Fov.maskParams(getProfile("bee")!!, viewFovDeg = Fov.VIEW_FOV_DEGREES / 4.0)
+        assertThat(bee.halfWidth).isGreaterThan(0.9)
+    }
+
     private fun getProfilesAll() = com.animalvision.core.profiles.profileRegistry
 }

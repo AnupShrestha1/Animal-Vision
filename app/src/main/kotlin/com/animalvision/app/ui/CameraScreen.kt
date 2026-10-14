@@ -8,10 +8,12 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,12 +24,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,6 +48,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,11 +60,13 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -95,6 +102,11 @@ fun CameraScreen(
     onSelectProfile: (String) -> Unit,
     displayMode: Int,
     onSetMode: (Int) -> Unit,
+    splitPosition: Float,
+    onSplitChange: (Float) -> Unit,
+    zoom: Float,
+    maxZoom: Float,
+    onZoom: (Float) -> Unit,
     onHoldStart: () -> Unit,
     onHoldEnd: () -> Unit,
     onTapFocus: (x: Float, y: Float) -> Unit,
@@ -142,6 +154,19 @@ fun CameraScreen(
         showModeHint = false
     }
 
+    // "Try this" hint for a few seconds whenever the animal changes (not on first show).
+    var showTip by remember { mutableStateOf(false) }
+    var firstProfile by remember { mutableStateOf(true) }
+    LaunchedEffect(profile.id) {
+        if (firstProfile) {
+            firstProfile = false
+            return@LaunchedEffect
+        }
+        showTip = true
+        delay(4500)
+        showTip = false
+    }
+
     // Shutter flash: a white veil that fades out after each photo.
     val flash = remember { Animatable(0f) }
     LaunchedEffect(captureFlashTick) {
@@ -185,7 +210,7 @@ fun CameraScreen(
             }
         }
 
-        if (displayMode == DisplayMode.SPLIT) SplitLabels(profile)
+        if (displayMode == DisplayMode.SPLIT) SplitOverlay(profile, splitPosition, onSplitChange)
 
         // Light scrims only where chrome sits, so the scene stays visible.
         Box(
@@ -234,6 +259,7 @@ fun CameraScreen(
                 text = when {
                     statusMessage != null -> statusMessage
                     showModeHint -> modeLabel(displayMode, profile)
+                    showTip -> tryTip(profile.id)
                     else -> null
                 },
             )
@@ -253,7 +279,10 @@ fun CameraScreen(
                 )
                 Spacer(Modifier.height(10.dp))
             }
-            ModeSelector(displayMode = displayMode, onSetMode = onSetMode)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ZoomSelector(zoom = zoom, maxZoom = maxZoom, onZoom = onZoom)
+                ModeSelector(displayMode = displayMode, onSetMode = onSetMode)
+            }
             Spacer(Modifier.height(4.dp))
             AnimalSelector(profiles = profiles, selectedId = profile.id, onSelect = onSelectProfile)
             if (!isLandscape) {
@@ -463,38 +492,109 @@ private fun TransientMessage(text: String?) {
     }
 }
 
-/** Names the two halves in Split mode, with a thin divider down the middle. */
+/**
+ * Split mode: names both halves and shows a draggable divider. Wiping the boundary back and
+ * forth over the same detail makes subtle (but real) differences easy to see.
+ */
 @Composable
-private fun SplitLabels(profile: AnimalVisionProfile) {
-    Box(Modifier.fillMaxSize()) {
-        // Fades out before the bottom controls so it doesn't cut through the shutter.
+private fun SplitOverlay(profile: AnimalVisionProfile, split: Float, onSplitChange: (Float) -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val widthPx = constraints.maxWidth.toFloat()
+        val density = LocalDensity.current
+        val dividerX = with(density) { (widthPx * split).toDp() }
+        // The drag handler outlives recompositions; read the latest position, not the
+        // value captured when the gesture detector started.
+        val currentSplit by rememberUpdatedState(split)
+        // Thin line, fading out before the bottom controls.
         Box(
             Modifier
-                .align(Alignment.Center)
+                .offset(x = dividerX - 0.75.dp)
                 .width(1.5.dp)
                 .fillMaxHeight()
                 .background(
                     Brush.verticalGradient(
-                        0f to Color.White.copy(alpha = 0.6f),
-                        0.62f to Color.White.copy(alpha = 0.6f),
+                        0f to Color.White.copy(alpha = 0.7f),
+                        0.62f to Color.White.copy(alpha = 0.7f),
                         0.7f to Color.Transparent,
                     ),
                 ),
         )
+        // Drag target: a 56dp strip along the line with a visible handle.
+        Box(
+            Modifier
+                .offset(x = dividerX - 28.dp)
+                .width(56.dp)
+                .fillMaxHeight(0.62f)
+                .pointerInput(widthPx) {
+                    detectHorizontalDragGestures { change, dragAmount ->
+                        change.consume()
+                        onSplitChange((currentSplit + dragAmount / widthPx).coerceIn(0.1f, 0.9f))
+                    }
+                }
+                .semantics { contentDescription = "Split divider, drag to compare" },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "‹ ›",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = AvInk,
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.9f))
+                    .wrapContentHeight(Alignment.CenterVertically),
+                textAlign = TextAlign.Center,
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                // Halves are split at the screen centre (as the GPU does), so no side inset here.
                 // Below the status bar + top chrome (buttons and badge row), in both orientations.
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
                 .padding(top = SplitLabelTop),
         ) {
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            Box(Modifier.weight(split.coerceIn(0.05f, 0.95f)), contentAlignment = Alignment.Center) {
                 Badge(text = profile.shortName.uppercase(), color = MaterialTheme.colorScheme.primary)
             }
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            Box(Modifier.weight((1f - split).coerceIn(0.05f, 0.95f)), contentAlignment = Alignment.Center) {
                 Badge(text = "HUMAN", color = Color.White)
             }
+        }
+    }
+}
+
+/** Zoom presets the camera supports; zooming also rescales the acuity model to the field shown. */
+@Composable
+private fun ZoomSelector(zoom: Float, maxZoom: Float, onZoom: (Float) -> Unit) {
+    val presets = listOf(1f, 2f, 4f).filter { it <= maxZoom + 0.01f }
+    if (presets.size < 2) return
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.Black.copy(alpha = 0.5f))
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        presets.forEach { preset ->
+            val selected = Math.abs(zoom - preset) < 0.05f
+            Text(
+                text = "${preset.toInt()}×",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (selected) AvInk else Color.White.copy(alpha = 0.9f),
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(13.dp))
+                    .background(if (selected) AvAccentAlt else Color.Transparent)
+                    .clickable { onZoom(preset) }
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                    .semantics {
+                        role = Role.Tab
+                        this.selected = selected
+                        contentDescription = "Zoom ${preset.toInt()} times"
+                    },
+            )
         }
     }
 }

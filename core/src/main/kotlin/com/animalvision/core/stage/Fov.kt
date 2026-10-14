@@ -46,10 +46,18 @@ object Fov {
     const val MUZZLE_NX = 0.18
     const val MUZZLE_FACTOR = 0.15
 
-    fun maskParams(profile: AnimalVisionProfile): MaskParams {
-        val binWidth = profile.fieldOfView.binocularWidthDeg.coerceAtMost(VIEW_FOV_DEGREES)
+    /**
+     * Mask parameters for a frame spanning [viewFovDeg] horizontally (narrower when zoomed).
+     * The binocular band is the animal's binocular width as a fraction of that field; when it
+     * is wider than the whole frame (cat, human, or any zoomed view) the frame lies entirely
+     * inside the binocular zone.
+     */
+    fun maskParams(profile: AnimalVisionProfile, viewFovDeg: Double = VIEW_FOV_DEGREES): MaskParams {
+        val fraction = profile.fieldOfView.binocularWidthDeg / viewFovDeg
         return MaskParams(
-            halfWidth = (binWidth / VIEW_FOV_DEGREES).coerceIn(0.05, 1.0) / 2.0,
+            // Frame spans nx -1..1, so a band covering the whole frame has half-width 1;
+            // beyond ~1.6 the smooth edge is off-frame as well.
+            halfWidth = fraction.coerceIn(0.05, 1.6),
             yAspect = 0.55,
             peripheral = profile.acuity.peripheralScalar.coerceIn(0.0, 1.0),
             muzzleBlindSpot = profile.id == "horse",

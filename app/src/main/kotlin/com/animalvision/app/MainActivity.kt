@@ -102,6 +102,8 @@ class MainActivity : ComponentActivity() {
             tierProvider = { appState.qualityTier },
             modeProvider = { appState.effectiveMode() },
             lowLightGate = { appState.lowLightEnabled },
+            zoomProvider = { appState.zoom },
+            splitProvider = { appState.splitPosition },
         )
         // Seed the current display rotation so a launch already in landscape
         // renders upright (the camera always binds at ROTATION_0; the renderer
@@ -149,9 +151,8 @@ class MainActivity : ComponentActivity() {
         cameraController.onCapabilitiesResolved = { _, resolution ->
             renderer.setCameraSize(resolution.width, resolution.height)
             appState.hasFlash = cameraController.hasFlash
-            // Ultra-wide is not probed (phase-1 limitation, spec §15): tell the user the
-            // species FOV is simulated rather than optically widened.
-            appState.capabilityNote = "Species FOV simulated — standard lens in use"
+            appState.maxZoom = cameraController.maxZoom
+            appState.zoom = 1f
         }
         // Recordings abandoned by a previous process (killed mid-recording) are never published.
         ioExecutor.execute {
@@ -416,6 +417,11 @@ class MainActivity : ComponentActivity() {
                     onSelectProfile = appState::selectProfile,
                     displayMode = appState.effectiveMode(),
                     onSetMode = appState::setMode,
+                    splitPosition = appState.splitPosition,
+                    onSplitChange = { appState.splitPosition = it },
+                    zoom = appState.zoom,
+                    maxZoom = appState.maxZoom,
+                    onZoom = { appState.zoom = cameraController.setZoom(it) },
                     onHoldStart = { appState.setHoldToCompare(true) },
                     onHoldEnd = { appState.setHoldToCompare(false) },
                     onTapFocus = { x, y ->
