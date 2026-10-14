@@ -10,6 +10,7 @@ import android.media.MediaMetadataRetriever
 import android.opengl.GLSurfaceView
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -34,6 +35,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.animalvision.app.gl.AnimalGlRenderer
 import com.animalvision.app.ui.AnimalInfoScreen
 import com.animalvision.app.ui.AnimalVisionTheme
@@ -94,6 +96,17 @@ class MainActivity : ComponentActivity() {
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // App icon on launch for ~1 s (cold starts), then a short fade into the camera.
+        val splash = installSplashScreen()
+        val launchedAt = SystemClock.uptimeMillis()
+        splash.setKeepOnScreenCondition { SystemClock.uptimeMillis() - launchedAt < SPLASH_MS }
+        splash.setOnExitAnimationListener { provider ->
+            provider.view.animate()
+                .alpha(0f)
+                .setDuration(220L)
+                .withEndAction { provider.remove() }
+                .start()
+        }
         super.onCreate(savedInstanceState)
 
         cameraPermissionGranted = hasCameraPermission()
@@ -493,6 +506,9 @@ class MainActivity : ComponentActivity() {
     }
 
 }
+
+/** How long the launch icon stays up on a cold start. */
+private const val SPLASH_MS = 1000L
 
 /** Shown when camera permission is denied (spec §37: graceful, with retry). */
 @Composable
